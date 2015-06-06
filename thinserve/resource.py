@@ -1,0 +1,2 @@
+class ThinResource (object):
+    pass

@@ -7,6 +7,7 @@ from thinserve import resource
 class ThinServer (object):
     def __init__(self, apiroot, staticdir):
         self._site = server.Site(resource.ThinResource(apiroot, staticdir))
+        self._site.displayTracebacks = False
 
     def listen(self, port):
         ep = endpoints.serverFromString(
