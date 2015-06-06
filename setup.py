@@ -18,7 +18,9 @@ setup(
     author_email='nejucomo@gmail.com',
 
     packages=find_packages(),
-    install_requires=[],
+    install_requires=[
+        'mock == 1.0.1',
+    ],
     package_data={
         PACKAGENAME: [
             'web/static/*',
