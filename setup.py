@@ -8,8 +8,8 @@ PACKAGENAME = 'thinserve'
 
 setup(
     name=PACKAGENAME,
-    description="""\
-        A thin server framework for REST API + static js+html clients.',
+    description="""
+        A twisted thin server framework for JSON API + static html clients.
     """.strip(),
     url='https://github.com/nejucomo/{0}'.format(PACKAGENAME),
     license='GPLv3',
