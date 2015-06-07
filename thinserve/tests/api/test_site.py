@@ -1,9 +1,9 @@
 from unittest import TestCase
-from mock import call, patch, sentinel
-from thinserve import ThinServer
+from mock import call, patch, sentinel, ANY
+from thinserve.api.site import ThinSite
 
 
-class ThinServerTests (TestCase):
+class ThinSiteTests (TestCase):
     def test__init__(self):
         self._test_init()
 
@@ -16,21 +16,21 @@ class ThinServerTests (TestCase):
         self.assertEqual(
             m_serverFromString.mock_calls,
             [call(m_reactor, 'tcp:4242'),
-             call().listen(ts._site)])
+             call().listen(ts)])
 
-    @patch('thinserve.resource.ThinResource')
-    @patch('twisted.web.server.Site')
-    def _test_init(self, m_Site, m_ThinResource):
-        ts = ThinServer(sentinel.apiroot, sentinel.staticdir)
+    @patch('thinserve.api.resource.ThinResource')
+    @patch('twisted.web.server.Site.__init__')
+    def _test_init(self, m_Site__init__, m_ThinResource):
+        ts = ThinSite(sentinel.apiroot, sentinel.staticdir)
 
-        self.assertEqual(ts._site.displayTracebacks, False)
+        self.assertEqual(ts.displayTracebacks, False)
 
         self.assertEqual(
             m_ThinResource.mock_calls,
             [call(sentinel.apiroot, sentinel.staticdir)])
 
         self.assertEqual(
-            m_Site.mock_calls,
-            [call(m_ThinResource.return_value)])
+            m_Site__init__.mock_calls,
+            [call(ANY, m_ThinResource.return_value)])
 
         return ts

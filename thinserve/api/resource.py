@@ -1,14 +1,14 @@
 import os
 import pkg_resources
 from twisted.web import resource, static
-from thinserve import apires
+from thinserve.api import apiresource
 
 
 class ThinResource (resource.Resource):
     def __init__(self, apiroot, staticdir):
         resource.Resource.__init__(self)
 
-        self.putChild('api', apires.APIResource(apiroot))
+        self.putChild('api', apiresource.ThinAPIResource(apiroot))
         self.putChild(
             'ts',
             static.File(

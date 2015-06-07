@@ -19,6 +19,7 @@ setup(
 
     packages=find_packages(),
     install_requires=[
+        'functable == 0.2.dev1',
         'mock == 1.0.1',
     ],
     package_data={
