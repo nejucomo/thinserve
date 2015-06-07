@@ -23,8 +23,8 @@ class ThinAPIResourceTests (TestCase):
             True, 200,
             {"session": sid})
 
-        self.assertEqual(
-            m_Session.mock_calls,
+        check_mock(
+            self, m_Session,
             [call(self.m_apiroot)])
 
     def test_GET_session_poll(self):
