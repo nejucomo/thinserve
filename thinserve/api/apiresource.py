@@ -1,4 +1,3 @@
-import sys
 import json
 from functable import FunctionTableProperty
 from twisted.internet import defer
@@ -70,8 +69,7 @@ class ThinAPIResource (resource.Resource):
             if isinstance(failure.value, error.ProtocolError):
                 return failure
             else:
-                sys.stderr.write('Unexpected exception:\n')
-                failure.printDetailedTraceback(file=sys.stderr)
+                failure.printTraceback()
                 raise error.InternalError()
 
         @d.addErrback

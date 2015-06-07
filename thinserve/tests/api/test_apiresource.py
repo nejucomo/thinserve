@@ -20,6 +20,7 @@ class ThinAPIResourceTests (TestCase):
         self._make_request(
             'POST',
             ["create_session", {}],
+            True,
             200,
             {"session": sid})
 
@@ -35,6 +36,7 @@ class ThinAPIResourceTests (TestCase):
         self._make_request(
             'GET',
             None,
+            True,
             400,
             {"template": "unsupported HTTP method \"{method}\"",
              "params": {"method": "GET"}})
@@ -43,8 +45,39 @@ class ThinAPIResourceTests (TestCase):
             self.m_apiroot.mock_calls,
             [])
 
+    def test_error_unsupported_method(self):
+        self._make_request(
+            'HEAD',
+            None,
+            False,
+            400,
+            {"template": "unsupported HTTP method \"{method}\"",
+             "params": {"method": "HEAD"}})
+
+        self.assertEqual(
+            self.m_apiroot.mock_calls,
+            [])
+
+    def test_unexpected_internal_error(self):
+        # Violate the interface to cause an "unexpected" error:
+        @self.tar._method_handlers.register
+        def _handle_GET(req):
+            assert False, 'Intentional test corruption.'
+
+        self._make_request(
+            'GET',
+            None,
+            False,
+            400,
+            {"template": "internal error",
+             "params": {}})
+
+        self.assertEqual(
+            self.m_apiroot.mock_calls,
+            [])
+
     # Helper code:
-    def _make_request(self, method, reqbody, rescode, resbody):
+    def _make_request(self, method, reqbody, resreadsreq, rescode, resbody):
         m_request = MagicMock(name='Request')
         m_request.method = method
         if reqbody is None:
@@ -58,11 +91,14 @@ class ThinAPIResourceTests (TestCase):
 
         self.assertEqual(r, server.NOT_DONE_YET)
 
-        check_mock(
-            self,
-            m_request,
-            [call.content.read(),
-             call.setResponseCode(rescode),
-             call.setHeader('Content-Type', 'application/json'),
-             call.write(json.dumps(resbody, indent=2)),
-             call.finish()])
+        expected = [
+            call.setResponseCode(rescode),
+            call.setHeader('Content-Type', 'application/json'),
+            call.write(json.dumps(resbody, indent=2)),
+            call.finish(),
+        ]
+
+        if resreadsreq:
+            expected.insert(0, call.content.read())
+
+        check_mock(self, m_request, expected)
