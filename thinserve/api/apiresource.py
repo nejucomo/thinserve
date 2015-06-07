@@ -91,25 +91,43 @@ class ThinAPIResource (resource.Resource):
 
     @_method_handlers.register
     def _handle_GET(self, req):
+        # BUG: What if the client sends a giant body?
         if req.content.read() != '':
             raise error.UnexpectedHTTPBody()
         else:
-            raise error.UnsupportedHTTPMethod(method='GET')
+            s = self._get_session(req)
+            if s is None:
+                raise error.UnsupportedHTTPMethod(method='GET')
+            else:
+                return s.gather_outgoing_messages()
 
     @_method_handlers.register
     def _handle_POST(self, req):
         msg = self._parse_json(req.content.read())
 
-        if msg != ["create_session", {}]:
-            raise error.UnknownOperation()
+        s = self._get_session(req)
+        if s is None:
+            if msg == ["create_session", {}]:
+                s = session.Session(self._apiroot)
+                self._sessions[s.id] = s
+                return {'session': s.id}
+            else:
+                raise error.UnknownOperation()
         else:
-            s = session.Session(self._apiroot)
-            self._sessions[s.id] = s
-            return {'session': s.id}
+            s.receive_message(msg)
+            return "ok"
 
-    def _get_session(self, msg):
+    def _get_session(self, req):
+        if req.postpath == []:
+            return None
+
         try:
-            return self._sessions[msg['session']]
+            [sessid] = req.postpath
+        except ValueError:
+            raise error.InvalidParameter(name='session')
+
+        try:
+            return self._sessions[sessid]
         except KeyError:
             raise error.InvalidParameter(name='session')
 

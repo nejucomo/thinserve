@@ -18,10 +18,9 @@ class ThinAPIResourceTests (TestCase):
         m_Session.return_value.id = sid
 
         self._make_request(
-            'POST',
+            'POST', [],
             ["create_session", {}],
-            True,
-            200,
+            True, 200,
             {"session": sid})
 
         self.assertEqual(
@@ -32,12 +31,78 @@ class ThinAPIResourceTests (TestCase):
             m_Session.mock_calls,
             [call(self.m_apiroot)])
 
+    def test_GET_session_poll(self):
+        sid = 'FAKE_SESSION_ID'
+        msgs = ["WHEE!"]
+
+        m_session = MagicMock(name='SessionInstance')
+        m_session.return_value.id = sid
+        m_session.gather_outgoing_messages.return_value = msgs
+
+        # Peek behind the curtain to avoid covering sessio creation code:
+        self.tar._sessions[sid] = m_session
+
+        self._make_request(
+            'GET', [sid],
+            None,
+            True, 200,
+            msgs)
+
+        self.assertEqual(
+            self.m_apiroot.mock_calls,
+            [])
+
+        check_mock(
+            self, m_session,
+            [call.gather_outgoing_messages()])
+
+    def test_POST_session_message(self):
+        sid = 'FAKE_SESSION_ID'
+        msg = {"fruit": "banana"}
+
+        m_session = MagicMock(name='SessionInstance')
+        m_session.return_value.id = sid
+
+        # Peek behind the curtain to avoid covering sessio creation code:
+        self.tar._sessions[sid] = m_session
+
+        self._make_request(
+            'POST', [sid],
+            msg,
+            True, 200,
+            'ok')
+
+        self.assertEqual(
+            self.m_apiroot.mock_calls,
+            [])
+
+        check_mock(
+            self, m_session,
+            [call.receive_message(msg)])
+
+    # Test many error input conditions:
+    def test_unexpected_internal_error(self):
+        # Violate the interface to cause an "unexpected" error:
+        @self.tar._method_handlers.register
+        def _handle_GET(req):
+            assert False, 'Intentional test corruption.'
+
+        self._make_request(
+            'GET', [],
+            None,
+            False, 400,
+            {"template": "internal error",
+             "params": {}})
+
+        self.assertEqual(
+            self.m_apiroot.mock_calls,
+            [])
+
     def test_error_GET(self):
         self._make_request(
-            'GET',
+            'GET', [],
             None,
-            True,
-            400,
+            True, 400,
             {"template": "unsupported HTTP method \"{method}\"",
              "params": {"method": "GET"}})
 
@@ -47,10 +112,9 @@ class ThinAPIResourceTests (TestCase):
 
     def test_error_unsupported_method(self):
         self._make_request(
-            'HEAD',
+            'HEAD', [],
             None,
-            False,
-            400,
+            False, 400,
             {"template": "unsupported HTTP method \"{method}\"",
              "params": {"method": "HEAD"}})
 
@@ -58,18 +122,60 @@ class ThinAPIResourceTests (TestCase):
             self.m_apiroot.mock_calls,
             [])
 
-    def test_unexpected_internal_error(self):
-        # Violate the interface to cause an "unexpected" error:
-        @self.tar._method_handlers.register
-        def _handle_GET(req):
-            assert False, 'Intentional test corruption.'
-
+    def test_error_GET_with_body(self):
         self._make_request(
-            'GET',
+            'GET', [],
+            'foobody',
+            True, 400,
+            {"template": "unexpected HTTP body",
+             "params": {}})
+
+        self.assertEqual(
+            self.m_apiroot.mock_calls,
+            [])
+
+    def test_error_POST_root_unknown_operation(self):
+        self._make_request(
+            'POST', [],
+            {"unexpected": "message"},
+            True, 400,
+            {"template": "unknown operation",
+             "params": {}})
+
+        self.assertEqual(
+            self.m_apiroot.mock_calls,
+            [])
+
+    def test_error_GET_bad_postpath(self):
+        self._make_request(
+            'GET', ['foo', 'bar'],
             None,
-            False,
-            400,
-            {"template": "internal error",
+            True, 400,
+            {"template": 'invalid parameter "{name}"',
+             "params": {"name": "session"}})
+
+        self.assertEqual(
+            self.m_apiroot.mock_calls,
+            [])
+
+    def test_error_GET_unknown_session(self):
+        self._make_request(
+            'GET', ['I am an unknown session id'],
+            None,
+            True, 400,
+            {"template": 'invalid parameter "{name}"',
+             "params": {"name": "session"}})
+
+        self.assertEqual(
+            self.m_apiroot.mock_calls,
+            [])
+
+    def test_error_POST_malformed_json(self):
+        self._make_request(
+            'POST', [],
+            'mangled JSON',
+            True, 400,
+            {"template": 'malformed JSON',
              "params": {}})
 
         self.assertEqual(
@@ -77,11 +183,18 @@ class ThinAPIResourceTests (TestCase):
             [])
 
     # Helper code:
-    def _make_request(self, method, reqbody, resreadsreq, rescode, resbody):
+    def _make_request(
+            self,
+            method, postpath, reqbody,
+            resreadsreq, rescode, resbody):
+
         m_request = MagicMock(name='Request')
         m_request.method = method
+        m_request.postpath = postpath
         if reqbody is None:
             readrv = ''
+        elif reqbody == 'mangled JSON':
+            readrv = reqbody
         else:
             readrv = json.dumps(reqbody, indent=2)
 
