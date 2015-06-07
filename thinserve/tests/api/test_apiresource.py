@@ -24,10 +24,6 @@ class ThinAPIResourceTests (TestCase):
             {"session": sid})
 
         self.assertEqual(
-            self.m_apiroot.mock_calls,
-            [])
-
-        self.assertEqual(
             m_Session.mock_calls,
             [call(self.m_apiroot)])
 
@@ -47,10 +43,6 @@ class ThinAPIResourceTests (TestCase):
             None,
             True, 200,
             msgs)
-
-        self.assertEqual(
-            self.m_apiroot.mock_calls,
-            [])
 
         check_mock(
             self, m_session,
@@ -72,10 +64,6 @@ class ThinAPIResourceTests (TestCase):
             True, 200,
             'ok')
 
-        self.assertEqual(
-            self.m_apiroot.mock_calls,
-            [])
-
         check_mock(
             self, m_session,
             [call.receive_message(msg)])
@@ -94,10 +82,6 @@ class ThinAPIResourceTests (TestCase):
             {"template": "internal error",
              "params": {}})
 
-        self.assertEqual(
-            self.m_apiroot.mock_calls,
-            [])
-
     def test_error_GET(self):
         self._make_request(
             'GET', [],
@@ -105,10 +89,6 @@ class ThinAPIResourceTests (TestCase):
             True, 400,
             {"template": "unsupported HTTP method \"{method}\"",
              "params": {"method": "GET"}})
-
-        self.assertEqual(
-            self.m_apiroot.mock_calls,
-            [])
 
     def test_error_unsupported_method(self):
         self._make_request(
@@ -118,10 +98,6 @@ class ThinAPIResourceTests (TestCase):
             {"template": "unsupported HTTP method \"{method}\"",
              "params": {"method": "HEAD"}})
 
-        self.assertEqual(
-            self.m_apiroot.mock_calls,
-            [])
-
     def test_error_GET_with_body(self):
         self._make_request(
             'GET', [],
@@ -129,10 +105,6 @@ class ThinAPIResourceTests (TestCase):
             True, 400,
             {"template": "unexpected HTTP body",
              "params": {}})
-
-        self.assertEqual(
-            self.m_apiroot.mock_calls,
-            [])
 
     def test_error_POST_root_unknown_operation(self):
         self._make_request(
@@ -142,10 +114,6 @@ class ThinAPIResourceTests (TestCase):
             {"template": "unknown operation",
              "params": {}})
 
-        self.assertEqual(
-            self.m_apiroot.mock_calls,
-            [])
-
     def test_error_GET_bad_postpath(self):
         self._make_request(
             'GET', ['foo', 'bar'],
@@ -153,10 +121,6 @@ class ThinAPIResourceTests (TestCase):
             True, 400,
             {"template": 'invalid parameter "{name}"',
              "params": {"name": "session"}})
-
-        self.assertEqual(
-            self.m_apiroot.mock_calls,
-            [])
 
     def test_error_GET_unknown_session(self):
         self._make_request(
@@ -166,10 +130,6 @@ class ThinAPIResourceTests (TestCase):
             {"template": 'invalid parameter "{name}"',
              "params": {"name": "session"}})
 
-        self.assertEqual(
-            self.m_apiroot.mock_calls,
-            [])
-
     def test_error_POST_malformed_json(self):
         self._make_request(
             'POST', [],
@@ -177,10 +137,6 @@ class ThinAPIResourceTests (TestCase):
             True, 400,
             {"template": 'malformed JSON',
              "params": {}})
-
-        self.assertEqual(
-            self.m_apiroot.mock_calls,
-            [])
 
     # Helper code:
     def _make_request(
@@ -203,6 +159,11 @@ class ThinAPIResourceTests (TestCase):
         r = self.tar.render(m_request)
 
         self.assertEqual(r, server.NOT_DONE_YET)
+
+        # Rendering a request never touches apiroot:
+        check_mock(
+            self, self.m_apiroot,
+            [])
 
         expected = [
             call.setResponseCode(rescode),

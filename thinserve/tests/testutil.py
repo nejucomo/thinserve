@@ -17,6 +17,7 @@ def check_lists_equal(testcase, expected, actual):
         {}
     '''.rstrip()) + '\n'
 
+    i = -1
     for i, (x, y) in enumerate(zip(expected, actual)):
         testcase.assertEqual(
             x, y,
