@@ -27,8 +27,8 @@ class MalformedJSON (ProtocolError):
     Template = 'malformed JSON'
 
 
-class UnknownOperation (ProtocolError):
-    Template = 'unknown operation'
+class MalformedMessage (ProtocolError):
+    Template = 'malformed message'
 
 
 class InvalidParameter (ProtocolError):

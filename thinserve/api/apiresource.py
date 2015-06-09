@@ -1,3 +1,4 @@
+import os
 import json
 from functable import FunctionTableProperty
 from twisted.internet import defer
@@ -42,8 +43,8 @@ class ThinAPIResource (resource.Resource):
               out, or an identical concurrent GET is received by the
               server.
     """
-    def __init__(self, apiroot):
-        self._apiroot = apiroot
+    def __init__(self, createsession):
+        self._createsession = createsession
         self._sessions = {}
 
     def render(self, req):
@@ -87,6 +88,7 @@ class ThinAPIResource (resource.Resource):
 
         return server.NOT_DONE_YET
 
+    _SessionIdBytes = 16  # 128 bits of entropy.
     _method_handlers = FunctionTableProperty('_handle_')
 
     @_method_handlers.register
@@ -107,12 +109,22 @@ class ThinAPIResource (resource.Resource):
 
         s = self._get_session(req)
         if s is None:
-            if msg == ["create_session", {}]:
-                s = session.Session(self._apiroot)
-                self._sessions[s.id] = s
-                return {'session': s.id}
+            try:
+                [opname, params] = msg
+            except ValueError:
+                raise error.MalformedMessage()
+            if opname != 'create_session':
+                raise error.MalformedMessage()
             else:
-                raise error.UnknownOperation()
+                d = defer.maybeDeferred(self._createsession, **params)
+
+                @d.addCallback
+                def handle_app_instance(obj):
+                    sid = os.urandom(self._SessionIdBytes).encode("hex")
+                    self._sessions[sid] = session.Session(obj)
+                    return {'session': sid}
+
+                return d
         else:
             s.receive_message(msg)
             return "ok"

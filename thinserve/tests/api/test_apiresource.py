@@ -8,24 +8,33 @@ from thinserve.tests.testutil import check_mock
 
 class ThinAPIResourceTests (TestCase):
     def setUp(self):
-        self.m_apiroot = MagicMock(name='apiroot')
-        self.tar = ThinAPIResource(self.m_apiroot)
+        self.m_createsession = MagicMock(name='createsession')
+        self.tar = ThinAPIResource(self.m_createsession)
         self.m_request = None
 
     @patch('thinserve.proto.session.Session')
-    def test_POST_create_session(self, m_Session):
-        sid = 'FAKE_SESSION_ID'
-        m_Session.return_value.id = sid
+    @patch('os.urandom')
+    def test_POST_create_session(self, m_urandom, m_Session):
+        entropy = 'fake entropy'
+        m_urandom.return_value = entropy
 
         self._make_request(
             'POST', [],
             ["create_session", {}],
             True, 200,
-            {"session": sid})
+            {"session": entropy.encode("hex")})
+
+        check_mock(
+            self, self.m_createsession,
+            [call()])
+
+        check_mock(
+            self, m_urandom,
+            [call(ThinAPIResource._SessionIdBytes)])
 
         check_mock(
             self, m_Session,
-            [call(self.m_apiroot)])
+            [call(self.m_createsession.return_value)])
 
     def test_GET_session_poll(self):
         sid = 'FAKE_SESSION_ID'
@@ -106,12 +115,20 @@ class ThinAPIResourceTests (TestCase):
             {"template": "unexpected HTTP body",
              "params": {}})
 
-    def test_error_POST_root_unknown_operation(self):
+    def test_error_POST_root_malformed_message(self):
         self._make_request(
             'POST', [],
             {"unexpected": "message"},
             True, 400,
-            {"template": "unknown operation",
+            {"template": "malformed message",
+             "params": {}})
+
+    def test_error_POST_root_unknown_operation(self):
+        self._make_request(
+            'POST', [],
+            ["create_disaster", 42],
+            True, 400,
+            {"template": "malformed message",
              "params": {}})
 
     def test_error_GET_bad_postpath(self):
@@ -159,11 +176,6 @@ class ThinAPIResourceTests (TestCase):
         r = self.tar.render(m_request)
 
         self.assertEqual(r, server.NOT_DONE_YET)
-
-        # Rendering a request never touches apiroot:
-        check_mock(
-            self, self.m_apiroot,
-            [])
 
         expected = [
             call.setResponseCode(rescode),
