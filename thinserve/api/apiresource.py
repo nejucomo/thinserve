@@ -116,6 +116,8 @@ class ThinAPIResource (resource.Resource):
             if opname != 'create_session':
                 raise error.MalformedMessage()
             else:
+                # SECURITY BUG: params may contain 'self'. Protect the
+                # app from this case.
                 d = defer.maybeDeferred(self._createsession, **params)
 
                 @d.addCallback
