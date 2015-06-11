@@ -6,5 +6,5 @@ def not_implemented(f):
     def g(*a, **kw):
         # Call it first, in case it has a partial implementation:
         f(*a, **kw)
-        raise NotImplemented((f, a, kw))
+        raise NotImplementedError((f, a, kw))
     return g

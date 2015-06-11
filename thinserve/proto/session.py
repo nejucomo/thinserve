@@ -12,3 +12,7 @@ class Session (object):
     @not_implemented
     def receive_message(self, msg):
         pass
+
+    @not_implemented
+    def _send_call(self, callid, target, method, params):
+        pass

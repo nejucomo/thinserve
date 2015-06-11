@@ -71,9 +71,9 @@ class SessionTests (TestCase):
         # Prime the (private) outgoing call queue:
         for callid, param in enumerate(self.params):
             repdefs.append(
-                self.session._send_call(
-                    target=fakeid,
+                self.s._send_call(
                     callid=callid,
+                    target=fakeid,
                     method='eat_a_fruit',
                     params={'fruit': param}))
 
