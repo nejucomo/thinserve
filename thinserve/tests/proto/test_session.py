@@ -1,4 +1,4 @@
-from unittest import TestCase
+from unittest import TestCase, skip
 from mock import MagicMock, call
 from thinserve.proto import session
 from thinserve.tests.testutil import check_mock, check_lists_equal
@@ -29,6 +29,7 @@ class SessionTests (TestCase):
         # The deferred should be waiting to fire:
         self.failIf(d.called)
 
+    @skip('not implemented')
     def test_receive_n_immediate_calls_then_gather_n_replies(self):
         self.m_root.eat_a_fruit.side_effect = self.replies
 
@@ -63,6 +64,7 @@ class SessionTests (TestCase):
                 ],
                 messages)
 
+    @skip('not implemented')
     def test_gather_n_calls_then_receive_n_replies(self):
         fakeid = 'fake-client-id'
 
