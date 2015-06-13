@@ -66,95 +66,43 @@ class LazyParserStructTests (TestCase):
 
         self.assertIs(sentinel, r)
 
-    def test_pos_apply_struct_with_method_self_mangling(self):
+    def test_neg_apply_struct_with_method_protects_self(self):
         lp = LazyParser({'x': 42, 's': 17})
 
         class C (object):
-            def method(s, x, s_):
-                return (s, x, s_)
+            def method(s, x):
+                self._fail_if_called()
 
-        i = C()
-        r = lp.apply_struct(i.method)
+        self.assertRaises(MalformedMessage, lp.apply_struct, C().method)
 
-        self.assertIsInstance(r, tuple)
-        self.assertEqual(3, len(r))
-
-        (a, b, c) = r
-        self.assertIs(i, a)
-        self.assertIsInstance(b, LazyParser)
-        self.assertIsInstance(c, LazyParser)
-
-    def test_pos_apply_struct_with_method_self_multimangling(self):
-        lp = LazyParser({'x': 42, 's': 17, 's_': 'wacky!'})
-
-        class C (object):
-            def method(s, x, s_, s__):
-                return (s, x, s_, s__)
-
-        i = C()
-        r = lp.apply_struct(i.method)
-
-        self.assertIsInstance(r, tuple)
-        self.assertEqual(4, len(r))
-
-        (a, b, c, d) = r
-        self.assertIs(i, a)
-        self.assertIsInstance(b, LazyParser)
-        self.assertIsInstance(c, LazyParser)
-        self.assertIsInstance(d, LazyParser)
-
-    def test_pos_apply_struct_with_init_self_mangling(self):
+    def test_neg_apply_struct_to_class_protects_self(self):
         lp = LazyParser({'x': 42, 's': 17})
 
         class C (object):
-            def __init__(s, x, s_):
-                return (s, x, s_)
+            def __init__(s, x):
+                self._fail_if_called()
 
-        r = lp.apply_struct(C)
+        self.assertRaises(MalformedMessage, lp.apply_struct, C)
 
-        self.assertIsInstance(r, tuple)
-        self.assertEqual(3, len(r))
-
-        (a, b, c) = r
-        self.assertIsInstance(a, C)
-        self.assertIsInstance(b, LazyParser)
-        self.assertIsInstance(c, LazyParser)
-
-    def test_pos_apply_struct_with_classmethod_class_mangling(self):
+    def test_neg_apply_struct_with_classmethod_protects_class(self):
         lp = LazyParser({'x': 42, 'c': 17})
 
         class C (object):
             @classmethod
-            def clsmethod(c, x, c_):
-                return (c, x, c_)
+            def clsmethod(c, x):
+                self._fail_if_called()
 
-        i = C()
-        r = lp.apply_struct(i.clsmethod)
+        self.assertRaises(MalformedMessage, lp.apply_struct, C.clsmethod)
+        self.assertRaises(MalformedMessage, lp.apply_struct, C().clsmethod)
 
-        self.assertIsInstance(r, tuple)
-        self.assertEqual(3, len(r))
-
-        (a, b, c) = r
-        self.assertIs(i, C)
-        self.assertIsInstance(b, LazyParser)
-        self.assertIsInstance(c, LazyParser)
-
-    def test_pos_apply_struct_with_new_class_mangling(self):
+    def test_new_apply_struct_with_to_class_protects_new_cls(self):
         lp = LazyParser({'x': 42, 'c': 17})
 
         class C (object):
-            def __new__(c, x, c_):
-                return (c, x, c_)
+            def __new__(c, x):
+                self._fail_if_called()
 
-        r = lp.apply_struct(C)
-
-        self.assertIsInstance(r, tuple)
-        self.assertEqual(3, len(r))
-
-        (a, b, c) = r
-        self.assertIs(a, C)
-        self.assertIsInstance(b, LazyParser)
-        self.assertIsInstance(c, LazyParser)
+        self.assertRaises(MalformedMessage, lp.apply_struct, C)
 
     def test_neg_apply_struct_wrong_type(self):
         lp = LazyParser(3)
