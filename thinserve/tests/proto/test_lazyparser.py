@@ -84,6 +84,25 @@ class LazyParserStructTests (TestCase):
         self.assertIsInstance(b, LazyParser)
         self.assertIsInstance(c, LazyParser)
 
+    def test_pos_apply_struct_with_method_self_multimangling(self):
+        lp = LazyParser({'x': 42, 's': 17, 's_': 'wacky!'})
+
+        class C (object):
+            def method(s, x, s_, s__):
+                return (s, x, s_, s__)
+
+        i = C()
+        r = lp.apply_struct(i.method)
+
+        self.assertIsInstance(r, tuple)
+        self.assertEqual(4, len(r))
+
+        (a, b, c, d) = r
+        self.assertIs(i, a)
+        self.assertIsInstance(b, LazyParser)
+        self.assertIsInstance(c, LazyParser)
+        self.assertIsInstance(d, LazyParser)
+
     def test_pos_apply_struct_with_init_self_mangling(self):
         lp = LazyParser({'x': 42, 's': 17})
 
@@ -166,6 +185,9 @@ class LazyParserStructTests (TestCase):
             MalformedMessage,
             lp.apply_struct,
             check)
+
+    def _fail_if_called(self):
+        self.fail('Application function called invalidly.')
 
 
 class LazyParserVariantTests (TestCase):
