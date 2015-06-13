@@ -2,6 +2,7 @@ __all__ = ['LazyParser']
 
 
 import inspect
+from types import MethodType
 from thinserve.proto.error import MalformedMessage
 
 
@@ -34,25 +35,9 @@ class LazyParser (object):
             in self.parse_type(dict).iteritems()
         )
 
-        spec = inspect.getargspec(f)
-        assert spec.varargs is None, \
-            'Invalid struct func {!r} accepts varargs'.format(f)
-        assert spec.keywords is None, \
-            'Invalid struct func {!r} accepts keywords'.format(f)
-        assert spec.defaults is None, \
-            'Invalid struct func {!r} accepts defaults'.format(f)
-
-        required = set(spec.args)
-        actual = set(params.keys())
-
-        missing = required - actual
-        if missing:
-            raise MalformedMessage()
-
-        unknown = actual - required
-        if unknown:
-            raise MalformedMessage()
-
+        argnames = get_arg_names(f)
+        params, argnames = get_mangled_params(type(f), params, argnames)
+        check_for_missing_or_unknown(argnames, params.keys())
         return f(**params)
 
     def apply_variant(self, **fs):
@@ -64,3 +49,42 @@ class LazyParser (object):
 
         f = fs[tag]
         return LazyParser(body).apply_struct(f)
+
+
+def get_mangled_params(ftype, params, argnames):
+    if ftype is MethodType:
+        selfname = argnames.pop(0)
+
+        if selfname in params:
+            collidingvalue = params.pop(selfname)
+            mangled = selfname + '_'
+            while mangled in params:
+                mangled += '_'
+            params[mangled] = collidingvalue
+
+    return params, argnames
+
+
+def get_arg_names(f):
+    spec = inspect.getargspec(f)
+    assert spec.varargs is None, \
+        'Invalid struct func {!r} accepts varargs'.format(f)
+    assert spec.keywords is None, \
+        'Invalid struct func {!r} accepts keywords'.format(f)
+    assert spec.defaults is None, \
+        'Invalid struct func {!r} accepts defaults'.format(f)
+
+    return spec.args
+
+
+def check_for_missing_or_unknown(argnames, paramnames):
+    required = set(argnames)
+    actual = set(paramnames)
+
+    missing = required - actual
+    if missing:
+        raise MalformedMessage()
+
+    unknown = actual - required
+    if unknown:
+        raise MalformedMessage()
