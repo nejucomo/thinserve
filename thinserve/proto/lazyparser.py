@@ -36,7 +36,6 @@ class LazyParser (object):
         )
 
         argnames = get_arg_names(f)
-        params, argnames = get_mangled_params(type(f), params, argnames)
         check_for_missing_or_unknown(argnames, params.keys())
         return f(**params)
 
@@ -51,21 +50,18 @@ class LazyParser (object):
         return LazyParser(body).apply_struct(f)
 
 
-def get_mangled_params(ftype, params, argnames):
-    if ftype is MethodType:
-        selfname = argnames.pop(0)
-
-        if selfname in params:
-            collidingvalue = params.pop(selfname)
-            mangled = selfname + '_'
-            while mangled in params:
-                mangled += '_'
-            params[mangled] = collidingvalue
-
-    return params, argnames
-
-
 def get_arg_names(f):
+    protectfirst = False
+
+    if type(f) is type:
+        protectfirst = True
+        if f.__new__ is not object.__new__:
+            f = f.__new__
+        else:
+            f = f.__init__
+    elif type(f) is MethodType:
+        protectfirst = True
+
     spec = inspect.getargspec(f)
     assert spec.varargs is None, \
         'Invalid struct func {!r} accepts varargs'.format(f)
@@ -74,7 +70,11 @@ def get_arg_names(f):
     assert spec.defaults is None, \
         'Invalid struct func {!r} accepts defaults'.format(f)
 
-    return spec.args
+    if protectfirst:
+        # Protect self/cls parameters:
+        return spec.args[1:]
+    else:
+        return spec.args
 
 
 def check_for_missing_or_unknown(argnames, paramnames):
