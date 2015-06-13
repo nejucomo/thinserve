@@ -1,6 +1,6 @@
 from unittest import TestCase
 from thinserve.proto.lazyparser import LazyParser
-from thinserve.proto.error import MalformedMessage
+from thinserve.proto import error
 
 
 class LazyParserPredicateTests (TestCase):
@@ -14,7 +14,7 @@ class LazyParserPredicateTests (TestCase):
         lp = LazyParser(3)
 
         self.assertRaises(
-            MalformedMessage,
+            error.MalformedMessage,
             lp.parse_predicate,
             lambda x: x % 2 == 0)
 
@@ -28,7 +28,7 @@ class LazyParserPredicateTests (TestCase):
         lp = LazyParser(3)
 
         self.assertRaises(
-            MalformedMessage,
+            error.MalformedMessage,
             lp.parse_type,
             str)
 
@@ -47,7 +47,7 @@ class LazyParserIterTests (TestCase):
         lp = LazyParser(3)
 
         self.assertRaises(
-            MalformedMessage,
+            error.MalformedMessage,
             lp.iter)
 
 
@@ -73,7 +73,10 @@ class LazyParserStructTests (TestCase):
             def method(s, x):
                 self._fail_if_called()
 
-        self.assertRaises(MalformedMessage, lp.apply_struct, C().method)
+        self.assertRaises(
+            error.UnexpectedStructKeys,
+            lp.apply_struct,
+            C().method)
 
     def test_neg_apply_struct_to_class_protects_self(self):
         lp = LazyParser({'x': 42, 's': 17})
@@ -82,7 +85,10 @@ class LazyParserStructTests (TestCase):
             def __init__(s, x):
                 self._fail_if_called()
 
-        self.assertRaises(MalformedMessage, lp.apply_struct, C)
+        self.assertRaises(
+            error.UnexpectedStructKeys,
+            lp.apply_struct,
+            C)
 
     def test_neg_apply_struct_with_classmethod_protects_class(self):
         lp = LazyParser({'x': 42, 'c': 17})
@@ -92,8 +98,11 @@ class LazyParserStructTests (TestCase):
             def clsmethod(c, x):
                 self._fail_if_called()
 
-        self.assertRaises(MalformedMessage, lp.apply_struct, C.clsmethod)
-        self.assertRaises(MalformedMessage, lp.apply_struct, C().clsmethod)
+        for m in [C.clsmethod, C().clsmethod]:
+            self.assertRaises(
+                error.UnexpectedStructKeys,
+                lp.apply_struct,
+                C.clsmethod)
 
     def test_new_apply_struct_with_to_class_protects_new_cls(self):
         lp = LazyParser({'x': 42, 'c': 17})
@@ -102,13 +111,16 @@ class LazyParserStructTests (TestCase):
             def __new__(c, x):
                 self._fail_if_called()
 
-        self.assertRaises(MalformedMessage, lp.apply_struct, C)
+        self.assertRaises(
+            error.UnexpectedStructKeys,
+            lp.apply_struct,
+            C)
 
     def test_neg_apply_struct_wrong_type(self):
         lp = LazyParser(3)
 
         self.assertRaises(
-            MalformedMessage,
+            error.MalformedMessage,
             lp.apply_struct,
             self._fail_if_called)
 
@@ -119,7 +131,7 @@ class LazyParserStructTests (TestCase):
             self._fail_if_called()
 
         self.assertRaises(
-            MalformedMessage,
+            error.MissingStructKeys,
             lp.apply_struct,
             check)
 
@@ -130,7 +142,7 @@ class LazyParserStructTests (TestCase):
             self._fail_if_called()
 
         self.assertRaises(
-            MalformedMessage,
+            error.UnexpectedStructKeys,
             lp.apply_struct,
             check)
 

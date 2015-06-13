@@ -31,5 +31,13 @@ class MalformedMessage (ProtocolError):
     Template = 'malformed message'
 
 
+class UnexpectedStructKeys (MalformedMessage):
+    Template = 'unexpected struct keys "{keys}"'
+
+
+class MissingStructKeys (MalformedMessage):
+    Template = 'missing struct keys "{keys}"'
+
+
 class InvalidParameter (ProtocolError):
     Template = 'invalid parameter "{name}"'

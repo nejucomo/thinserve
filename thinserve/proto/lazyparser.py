@@ -3,7 +3,7 @@ __all__ = ['LazyParser']
 
 import inspect
 from types import MethodType
-from thinserve.proto.error import MalformedMessage
+from thinserve.proto import error
 
 
 class LazyParser (object):
@@ -14,7 +14,7 @@ class LazyParser (object):
         if p(self._m):
             return self._m
         else:
-            raise MalformedMessage()
+            raise error.MalformedMessage()
 
     def parse_type(self, t):
         return self.parse_predicate(lambda v: isinstance(v, t))
@@ -83,8 +83,8 @@ def check_for_missing_or_unknown(argnames, paramnames):
 
     missing = required - actual
     if missing:
-        raise MalformedMessage()
+        raise error.MissingStructKeys(keys=list(missing))
 
     unknown = actual - required
     if unknown:
-        raise MalformedMessage()
+        raise error.UnexpectedStructKeys(keys=list(unknown))
