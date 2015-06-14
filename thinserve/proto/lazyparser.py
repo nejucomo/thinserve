@@ -41,8 +41,8 @@ class LazyParser (object):
             in self.parse_type(dict).iteritems()
         )
 
-        argnames = get_arg_names(f)
-        check_for_missing_or_unknown(argnames, params.keys())
+        argnames, haskw = get_arg_info(f)
+        check_for_missing_or_unknown(argnames, params.keys(), haskw)
         return f(**params)
 
     def apply_variant_struct(self, **fs):
@@ -65,7 +65,7 @@ class LazyParser (object):
         return f(LazyParser(body))
 
 
-def get_arg_names(f):
+def get_arg_info(f):
     assert callable(f), repr(f)
 
     if type(f) is FunctionType:
@@ -89,19 +89,19 @@ def get_arg_names(f):
     spec = inspect.getargspec(f)
     # assertion: spec.varargs is always ignored and unreachable from
     # remote attackers.
-    assert spec.keywords is None, \
-        'Invalid struct func {!r} accepts keywords'.format(f)
     assert spec.defaults is None, \
         'Invalid struct func {!r} accepts defaults'.format(f)
 
+    haskeywords = spec.keywords is not None
+
     if protectfirst:
         # Protect self/cls parameters:
-        return spec.args[1:]
+        return spec.args[1:], haskeywords
     else:
-        return spec.args
+        return spec.args, haskeywords
 
 
-def check_for_missing_or_unknown(argnames, paramnames):
+def check_for_missing_or_unknown(argnames, paramnames, haskw):
     required = set(argnames)
     actual = set(paramnames)
 
@@ -109,6 +109,7 @@ def check_for_missing_or_unknown(argnames, paramnames):
     if missing:
         raise error.MissingStructKeys(keys=list(missing))
 
-    unknown = actual - required
-    if unknown:
-        raise error.UnexpectedStructKeys(keys=list(unknown))
+    if not haskw:
+        unknown = actual - required
+        if unknown:
+            raise error.UnexpectedStructKeys(keys=list(unknown))

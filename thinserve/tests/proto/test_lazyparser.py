@@ -86,6 +86,21 @@ class LazyParser_struct (TestCase):
 
         self.assertIs(sentinel, r)
 
+    def test_pos_apply_struct_kwargs_accept_extra_keys(self):
+        lp = LazyParser({'x': 42, 'y': 17})
+
+        sentinel = object()
+
+        def check(x, **kw):
+            self.assertIsInstance(x, LazyParser)
+            self.assertEqual(['y'], kw.keys())
+            self.assertIsInstance(kw['y'], LazyParser)
+            return sentinel
+
+        r = lp.apply_struct(check)
+
+        self.assertIs(sentinel, r)
+
     def test_neg_apply_struct_wrong_type(self):
         lp = LazyParser(3)
 
