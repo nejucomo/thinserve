@@ -3,12 +3,18 @@ from thinserve.proto.lazyparser import LazyParser
 from thinserve.proto import error
 
 
-class LazyParserPredicateTests (TestCase):
-    def test_pos_unwrap(self):
+class LazyParserBasicTests (TestCase):
+    def test_repr(self):
+        lp = LazyParser({'x': 42})
+        self.assertEqual("<LazyParser {'x': 42}>", repr(lp))
+
+    def test_unwrap(self):
         sentinel = object()
         lp = LazyParser(sentinel)
         self.assertIs(sentinel, lp.unwrap())
 
+
+class LazyParserPredicateTests (TestCase):
     def test_neg_parse_predicate(self):
         lp = LazyParser(3)
 

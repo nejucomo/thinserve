@@ -10,6 +10,9 @@ class LazyParser (object):
     def __init__(self, msg):
         self._m = msg
 
+    def __repr__(self):
+        return '<{} {!r}>'.format(type(self).__name__, self._m)
+
     def unwrap(self):
         return self._m
 
