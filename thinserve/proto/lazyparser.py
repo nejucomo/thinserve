@@ -2,7 +2,7 @@ __all__ = ['LazyParser']
 
 
 import inspect
-from types import MethodType
+from types import FunctionType, MethodType
 from thinserve.proto import error
 
 
@@ -66,16 +66,25 @@ class LazyParser (object):
 
 
 def get_arg_names(f):
-    protectfirst = False
+    assert callable(f), repr(f)
 
-    if type(f) is type:
+    if type(f) is FunctionType:
+        protectfirst = False
+    elif type(f) is MethodType:
+        protectfirst = True
+    elif type(f) is type:
+        # It's a new-style class:
         protectfirst = True
         if f.__new__ is not object.__new__:
             f = f.__new__
         else:
             f = f.__init__
-    elif type(f) is MethodType:
+    elif isinstance(type(f), type):
+        # It's a new-style class instance:
         protectfirst = True
+        f = f.__call__
+    else:
+        assert False, 'Unsupported callable: {!r}'.format(f)
 
     spec = inspect.getargspec(f)
     assert spec.varargs is None, \
