@@ -101,11 +101,50 @@ class LazyParser_struct (TestCase):
             lp.apply_struct,
             check)
 
+    # Helper code:
     def _fail_if_called(self):
         self.fail('Application function called invalidly.')
 
 
 class LazyParser_struct_protected_privileged_parameter (TestCase):
+    def test_apply_struct_to__init__(self):
+        class C (object):
+            def __init__(protected, x):
+                pass
+
+        self._check(C)
+
+    def test_apply_struct_to__new__(self):
+        class C (object):
+            def __new__(protected, x):
+                pass
+
+        self._check(C)
+
+    def test_apply_struct_to__call__(self):
+        class C (object):
+            def __call__(protected, x):
+                pass
+
+        self._check(C())
+
+    def test_apply_struct_to_instance_method(self):
+        class C (object):
+            def method(protected, x):
+                pass
+
+        self._check(C().method)
+
+    def test_apply_struct_to_classmethod(self):
+        class C (object):
+            @classmethod
+            def clsmethod(protected, x):
+                pass
+
+        self._check(C.clsmethod)
+        self._check(C().clsmethod)
+
+    # Helper code:
     def _check(self, f):
         self._check_pos(f)
         self._check_neg(f)
@@ -123,36 +162,6 @@ class LazyParser_struct_protected_privileged_parameter (TestCase):
             error.UnexpectedStructKeys,
             lp.apply_struct,
             f)
-
-    def test_apply_struct_to_instance_method(self):
-        class C (object):
-            def method(protected, x):
-                pass
-
-        self._check(C().method)
-
-    def test_apply_struct_to__init__(self):
-        class C (object):
-            def __init__(protected, x):
-                pass
-
-        self._check(C)
-
-    def test_apply_struct_to_classmethod(self):
-        class C (object):
-            @classmethod
-            def clsmethod(protected, x):
-                pass
-
-        self._check(C.clsmethod)
-        self._check(C().clsmethod)
-
-    def test_apply_struct_to__new__(self):
-        class C (object):
-            def __new__(c, x):
-                pass
-
-        self._check(C)
 
 
 class LazyParser_variant (TestCase):
