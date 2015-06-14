@@ -56,7 +56,12 @@ class LazyParser_iter (TestCase):
             lp.iter)
 
 
-class LazyParser_struct (TestCase):
+class _FailIfCalledBase (TestCase):
+    def _fail_if_called(self):
+        self.fail('Application function called invalidly.')
+
+
+class LazyParser_struct (_FailIfCalledBase):
     def test_pos_apply_struct(self):
         lp = LazyParser({'x': 42, 'y': 17})
 
@@ -70,56 +75,6 @@ class LazyParser_struct (TestCase):
         r = lp.apply_struct(check)
 
         self.assertIs(sentinel, r)
-
-    def test_neg_apply_struct_with_method_protects_self(self):
-        lp = LazyParser({'x': 42, 's': 17})
-
-        class C (object):
-            def method(s, x):
-                self._fail_if_called()
-
-        self.assertRaises(
-            error.UnexpectedStructKeys,
-            lp.apply_struct,
-            C().method)
-
-    def test_neg_apply_struct_to_class_protects_self(self):
-        lp = LazyParser({'x': 42, 's': 17})
-
-        class C (object):
-            def __init__(s, x):
-                self._fail_if_called()
-
-        self.assertRaises(
-            error.UnexpectedStructKeys,
-            lp.apply_struct,
-            C)
-
-    def test_neg_apply_struct_with_classmethod_protects_class(self):
-        lp = LazyParser({'x': 42, 'c': 17})
-
-        class C (object):
-            @classmethod
-            def clsmethod(c, x):
-                self._fail_if_called()
-
-        for m in [C.clsmethod, C().clsmethod]:
-            self.assertRaises(
-                error.UnexpectedStructKeys,
-                lp.apply_struct,
-                C.clsmethod)
-
-    def test_new_apply_struct_with_to_class_protects_new_cls(self):
-        lp = LazyParser({'x': 42, 'c': 17})
-
-        class C (object):
-            def __new__(c, x):
-                self._fail_if_called()
-
-        self.assertRaises(
-            error.UnexpectedStructKeys,
-            lp.apply_struct,
-            C)
 
     def test_neg_apply_struct_wrong_type(self):
         lp = LazyParser(3)
@@ -151,8 +106,57 @@ class LazyParser_struct (TestCase):
             lp.apply_struct,
             check)
 
-    def _fail_if_called(self):
-        self.fail('Application function called invalidly.')
+
+class LazyParser_struct_protected_privileged_parameter (_FailIfCalledBase):
+    def test_neg_apply_struct_to_instance_method(self):
+        lp = LazyParser({'x': 42, 's': 17})
+
+        class C (object):
+            def method(s, x):
+                self._fail_if_called()
+
+        self.assertRaises(
+            error.UnexpectedStructKeys,
+            lp.apply_struct,
+            C().method)
+
+    def test_neg_apply_struct_to__init__(self):
+        lp = LazyParser({'x': 42, 's': 17})
+
+        class C (object):
+            def __init__(s, x):
+                self._fail_if_called()
+
+        self.assertRaises(
+            error.UnexpectedStructKeys,
+            lp.apply_struct,
+            C)
+
+    def test_neg_apply_struct_to_classmethod(self):
+        lp = LazyParser({'x': 42, 'c': 17})
+
+        class C (object):
+            @classmethod
+            def clsmethod(c, x):
+                self._fail_if_called()
+
+        for m in [C.clsmethod, C().clsmethod]:
+            self.assertRaises(
+                error.UnexpectedStructKeys,
+                lp.apply_struct,
+                C.clsmethod)
+
+    def test_new_apply_struct_to__new__(self):
+        lp = LazyParser({'x': 42, 'c': 17})
+
+        class C (object):
+            def __new__(c, x):
+                self._fail_if_called()
+
+        self.assertRaises(
+            error.UnexpectedStructKeys,
+            lp.apply_struct,
+            C)
 
 
 class LazyParser_variant (TestCase):
