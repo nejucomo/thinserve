@@ -144,6 +144,36 @@ class LazyParser_struct_protected_privileged_parameter (TestCase):
         self._check(C.clsmethod)
         self._check(C().clsmethod)
 
+    def test_apply_struct_to__init__old_style(self):
+        class C:
+            def __init__(protected, x):
+                pass
+
+        self._check(C)
+
+    def test_apply_struct_to__call__old_style(self):
+        class C:
+            def __call__(protected, x):
+                pass
+
+        self._check(C())
+
+    def test_apply_struct_to_instance_method_old_style(self):
+        class C:
+            def method(protected, x):
+                pass
+
+        self._check(C().method)
+
+    def test_apply_struct_to_classmethod_old_style(self):
+        class C:
+            @classmethod
+            def clsmethod(protected, x):
+                pass
+
+        self._check(C.clsmethod)
+        self._check(C().clsmethod)
+
     # Helper code:
     def _check(self, f):
         self._check_pos(f)

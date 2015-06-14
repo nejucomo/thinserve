@@ -2,7 +2,7 @@ __all__ = ['LazyParser']
 
 
 import inspect
-from types import FunctionType, MethodType
+from types import ClassType, InstanceType, FunctionType, MethodType
 from thinserve.proto import error
 
 
@@ -72,14 +72,14 @@ def get_arg_names(f):
         protectfirst = False
     elif type(f) is MethodType:
         protectfirst = True
-    elif type(f) is type:
-        # It's a new-style class:
+    elif type(f) in (type, ClassType):
+        # It's a class:
         protectfirst = True
-        if f.__new__ is not object.__new__:
+        if getattr(f, '__new__', object.__new__) is not object.__new__:
             f = f.__new__
         else:
             f = f.__init__
-    elif isinstance(type(f), type):
+    elif isinstance(type(f), type) or type(f) is InstanceType:
         # It's a new-style class instance:
         protectfirst = True
         f = f.__call__
