@@ -87,8 +87,8 @@ def get_arg_names(f):
         assert False, 'Unsupported callable: {!r}'.format(f)
 
     spec = inspect.getargspec(f)
-    assert spec.varargs is None, \
-        'Invalid struct func {!r} accepts varargs'.format(f)
+    # assertion: spec.varargs is always ignored and unreachable from
+    # remote attackers.
     assert spec.keywords is None, \
         'Invalid struct func {!r} accepts keywords'.format(f)
     assert spec.defaults is None, \
