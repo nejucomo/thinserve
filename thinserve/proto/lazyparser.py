@@ -10,6 +10,9 @@ class LazyParser (object):
     def __init__(self, msg):
         self._m = msg
 
+    def unwrap(self):
+        return self._m
+
     def parse_predicate(self, p):
         if p(self._m):
             return self._m

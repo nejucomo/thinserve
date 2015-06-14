@@ -4,11 +4,10 @@ from thinserve.proto import error
 
 
 class LazyParserPredicateTests (TestCase):
-    def test_pos_parse_predicate(self):
-        lp = LazyParser(3)
-
-        r = lp.parse_predicate(lambda x: x % 2 == 1)
-        self.assertEqual(3, r)
+    def test_pos_unwrap(self):
+        sentinel = object()
+        lp = LazyParser(sentinel)
+        self.assertIs(sentinel, lp.unwrap())
 
     def test_neg_parse_predicate(self):
         lp = LazyParser(3)
