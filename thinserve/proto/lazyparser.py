@@ -39,6 +39,15 @@ class LazyParser (object):
         check_for_missing_or_unknown(argnames, params.keys())
         return f(**params)
 
+    def apply_variant_struct(self, **fs):
+        return self.apply_variant(
+            **dict(
+                (k, lambda lp, f=f: lp.apply_struct(f))
+                for (k, f)
+                in fs.iteritems()
+            )
+        )
+
     def apply_variant(self, **fs):
         [tag, body] = self.parse_predicate(
             lambda v: (isinstance(v, list) and
@@ -47,7 +56,7 @@ class LazyParser (object):
             )
 
         f = fs[tag]
-        return LazyParser(body).apply_struct(f)
+        return f(LazyParser(body))
 
 
 def get_arg_names(f):

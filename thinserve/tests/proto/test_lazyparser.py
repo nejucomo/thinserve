@@ -151,14 +151,29 @@ class LazyParserStructTests (TestCase):
 
 
 class LazyParserVariantTests (TestCase):
-    def test_pos_apply_variant(self):
+    def test_pos_apply_variant_struct(self):
         # Setup:
-        lp = LazyParser(['animal', {'kind': 'gnome'}])
+        lp = LazyParser(['animal', {'kind': 'gnome', 'name': 'bob'}])
 
         sentinel = object()
 
-        def check(kind):
+        def check(kind, name):
             self.assertIsInstance(kind, LazyParser)
+            self.assertIsInstance(name, LazyParser)
+            return sentinel
+
+        r = lp.apply_variant_struct(animal=check)
+
+        self.assertIs(sentinel, r)
+
+    def test_pos_apply_variant(self):
+        # Setup:
+        lp = LazyParser(['animal', {'kind': 'gnome', 'name': 'bob'}])
+
+        sentinel = object()
+
+        def check(lp):
+            self.assertIsInstance(lp, LazyParser)
             return sentinel
 
         r = lp.apply_variant(animal=check)
