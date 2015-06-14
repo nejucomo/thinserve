@@ -3,7 +3,7 @@ from unittest import TestCase
 from twisted.web import server
 from mock import MagicMock, call, patch
 from thinserve.api.apiresource import ThinAPIResource
-from thinserve.tests.testutil import check_mock
+from thinserve.tests.testutil import check_mock, EqCb
 
 
 class ThinAPIResourceTests (TestCase):
@@ -75,7 +75,7 @@ class ThinAPIResourceTests (TestCase):
 
         check_mock(
             self, m_session,
-            [call.receive_message(msg)])
+            [call.receive_message(EqCb(lambda lp: lp.unwrap() == msg))])
 
     # Test many error input conditions:
     def test_unexpected_internal_error(self):

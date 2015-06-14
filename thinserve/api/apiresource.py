@@ -4,6 +4,7 @@ from functable import FunctionTableProperty
 from twisted.internet import defer
 from twisted.web import resource, server
 from thinserve.proto import session, error
+from thinserve.proto.lazyparser import LazyParser
 
 
 class ThinAPIResource (resource.Resource):
@@ -43,8 +44,8 @@ class ThinAPIResource (resource.Resource):
               out, or an identical concurrent GET is received by the
               server.
     """
-    def __init__(self, createsession):
-        self._createsession = createsession
+    def __init__(self, app_create_session):
+        self._app_create_session = app_create_session
         self._sessions = {}
 
     def render(self, req):
@@ -105,30 +106,13 @@ class ThinAPIResource (resource.Resource):
 
     @_method_handlers.register
     def _handle_POST(self, req):
-        msg = self._parse_json(req.content.read())
+        mp = self._make_message_parser(req.content.read())
 
         s = self._get_session(req)
         if s is None:
-            try:
-                [opname, params] = msg
-            except ValueError:
-                raise error.MalformedMessage()
-            if opname != 'create_session':
-                raise error.MalformedMessage()
-            else:
-                # SECURITY BUG: params may contain 'self'. Protect the
-                # app from this case.
-                d = defer.maybeDeferred(self._createsession, **params)
-
-                @d.addCallback
-                def handle_app_instance(obj):
-                    sid = os.urandom(self._SessionIdBytes).encode("hex")
-                    self._sessions[sid] = session.Session(obj)
-                    return {'session': sid}
-
-                return d
+            return mp.apply_variant(create_session=self._create_session)
         else:
-            s.receive_message(msg)
+            s.receive_message(mp)
             return "ok"
 
     def _get_session(self, req):
@@ -145,9 +129,22 @@ class ThinAPIResource (resource.Resource):
         except KeyError:
             raise error.InvalidParameter(name='session')
 
+    def _create_session(self, mp):
+        d = defer.maybeDeferred(mp.apply_struct, self._app_create_session)
+
+        @d.addCallback
+        def handle_app_instance(obj):
+            sid = os.urandom(self._SessionIdBytes).encode("hex")
+            self._sessions[sid] = session.Session(obj)
+            return {'session': sid}
+
+        return d
+
     @staticmethod
-    def _parse_json(text):
+    def _make_message_parser(text):
         try:
-            return json.loads(text)
+            jdoc = json.loads(text)
         except ValueError:
             raise error.MalformedJSON()
+        else:
+            return LazyParser(jdoc)

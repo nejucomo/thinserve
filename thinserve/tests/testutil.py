@@ -38,3 +38,15 @@ def check_lists_equal(testcase, expected, actual):
 def indent(s, cols=2):
     prefix = ' ' * cols
     return prefix + s.replace('\n', '\n' + prefix)
+
+
+class EqCb (object):
+    """Useful for passing predicates into check_mock call parameters."""
+    def __init__(self, cb):
+        self._cb = cb
+
+    def __eq__(self, other):
+        return self._cb(other)
+
+    def __repr__(self):
+        return '<EqCb {!r}>'.format(self._cb)
