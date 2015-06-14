@@ -41,8 +41,8 @@ class LazyParser (object):
             in self.parse_type(dict).iteritems()
         )
 
-        argnames, haskw = get_arg_info(f)
-        check_for_missing_or_unknown(argnames, params.keys(), haskw)
+        argnames, haskw, dc = get_arg_info(f)
+        check_for_missing_or_unknown(argnames, params.keys(), haskw, dc)
         return f(**params)
 
     def apply_variant_struct(self, **fs):
@@ -86,23 +86,26 @@ def get_arg_info(f):
     else:
         assert False, 'Unsupported callable: {!r}'.format(f)
 
-    spec = inspect.getargspec(f)
-    # assertion: spec.varargs is always ignored and unreachable from
+    argnames, _, keywords, defaults = inspect.getargspec(f)
+    # assertion: varargs is always ignored and unreachable from
     # remote attackers.
-    assert spec.defaults is None, \
-        'Invalid struct func {!r} accepts defaults'.format(f)
-
-    haskeywords = spec.keywords is not None
 
     if protectfirst:
         # Protect self/cls parameters:
-        return spec.args[1:], haskeywords
+        argnames.pop(0)
+
+    haskeywords = keywords is not None
+    defcount = 0 if defaults is None else len(defaults)
+
+    return argnames, haskeywords, defcount
+
+
+def check_for_missing_or_unknown(argnames, paramnames, haskw, defcount):
+    if defcount == 0:
+        required = set(argnames)
     else:
-        return spec.args, haskeywords
+        required = set(argnames[:-defcount])
 
-
-def check_for_missing_or_unknown(argnames, paramnames, haskw):
-    required = set(argnames)
     actual = set(paramnames)
 
     missing = required - actual
@@ -110,6 +113,6 @@ def check_for_missing_or_unknown(argnames, paramnames, haskw):
         raise error.MissingStructKeys(keys=list(missing))
 
     if not haskw:
-        unknown = actual - required
+        unknown = actual - set(argnames)
         if unknown:
             raise error.UnexpectedStructKeys(keys=list(unknown))

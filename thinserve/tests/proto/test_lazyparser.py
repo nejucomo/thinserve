@@ -101,6 +101,24 @@ class LazyParser_struct (TestCase):
 
         self.assertIs(sentinel, r)
 
+    def test_pos_apply_struct_with_defaults(self):
+        lp1 = LazyParser({'x': 42, 'y': 17})
+        lp2 = LazyParser({'x': 42, 'y': 17, 'z': 'banana'})
+
+        sentinel = object()
+
+        def check(x, y, z=LazyParser('blah')):
+            self.assertIsInstance(x, LazyParser)
+            self.assertIsInstance(y, LazyParser)
+            self.assertIsInstance(z, LazyParser)
+            return sentinel
+
+        r = lp1.apply_struct(check)
+        self.assertIs(sentinel, r)
+
+        r = lp2.apply_struct(check)
+        self.assertIs(sentinel, r)
+
     def test_neg_apply_struct_wrong_type(self):
         lp = LazyParser(3)
 
