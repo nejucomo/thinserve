@@ -1,6 +1,7 @@
-from unittest import TestCase, skip
+from unittest import TestCase
 from mock import MagicMock, call
 from thinserve.proto import session
+from thinserve.proto.lazyparser import LazyParser
 from thinserve.tests.testutil import check_mock, check_lists_equal
 
 
@@ -29,17 +30,17 @@ class SessionTests (TestCase):
         # The deferred should be waiting to fire:
         self.failIf(d.called)
 
-    @skip('not implemented')
     def test_receive_n_immediate_calls_then_gather_n_replies(self):
         self.m_root.eat_a_fruit.side_effect = self.replies
 
         for callid, param in enumerate(self.params):
             self.s.receive_message(
-                ['call',
-                 {'id': callid,
-                  'target': None,
-                  'method': 'eat_a_fruit',
-                  'params': {'fruit': param}}])
+                LazyParser(
+                    ['call',
+                     {'id': callid,
+                      'target': None,
+                      'method': 'eat_a_fruit',
+                      'params': {'fruit': param}}]))
 
         d = self.s.gather_outgoing_messages()
 
@@ -64,7 +65,6 @@ class SessionTests (TestCase):
                 ],
                 messages)
 
-    @skip('not implemented')
     def test_gather_n_calls_then_receive_n_replies(self):
         fakeid = 'fake-client-id'
 
@@ -103,9 +103,10 @@ class SessionTests (TestCase):
                 self.failIf(d.called)
 
                 self.s.receive_message(
-                    ['reply',
-                     {'id': callid,
-                      'result': ['data', reply]}])
+                    LazyParser(
+                        ['reply',
+                         {'id': callid,
+                          'result': ['data', reply]}]))
 
                 self.failUnless(d.called)
 
