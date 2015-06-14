@@ -3,7 +3,7 @@ from thinserve.proto.lazyparser import LazyParser
 from thinserve.proto import error
 
 
-class LazyParserBasicTests (TestCase):
+class LazyParser_basic (TestCase):
     def test_repr(self):
         lp = LazyParser({'x': 42})
         self.assertEqual("<LazyParser {'x': 42}>", repr(lp))
@@ -14,7 +14,7 @@ class LazyParserBasicTests (TestCase):
         self.assertIs(sentinel, lp.unwrap())
 
 
-class LazyParserPredicateTests (TestCase):
+class LazyParser_type_and_predicate (TestCase):
     def test_neg_parse_predicate(self):
         lp = LazyParser(3)
 
@@ -38,7 +38,7 @@ class LazyParserPredicateTests (TestCase):
             str)
 
 
-class LazyParserIterTests (TestCase):
+class LazyParser_iter (TestCase):
     def test_pos_iter(self):
         lp = LazyParser([1, 2, 3])
 
@@ -56,7 +56,7 @@ class LazyParserIterTests (TestCase):
             lp.iter)
 
 
-class LazyParserStructTests (TestCase):
+class LazyParser_struct (TestCase):
     def test_pos_apply_struct(self):
         lp = LazyParser({'x': 42, 'y': 17})
 
@@ -155,7 +155,7 @@ class LazyParserStructTests (TestCase):
         self.fail('Application function called invalidly.')
 
 
-class LazyParserVariantTests (TestCase):
+class LazyParser_variant (TestCase):
     def test_pos_apply_variant_struct(self):
         # Setup:
         lp = LazyParser(['animal', {'kind': 'gnome', 'name': 'bob'}])
