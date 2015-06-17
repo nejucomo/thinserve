@@ -1,6 +1,6 @@
+from functable import FunctionTableProperty
 from twisted.internet import defer
 from thinserve.util import not_implemented
-from thinserve.proto import error
 
 
 class Session (object):
@@ -26,26 +26,25 @@ class Session (object):
             return self._pendingq
 
     def receive_message(self, msg):
-        try:
-            [action, detail] = msg
-        except ValueError:
-            raise error.MalformedMessage()
+        msg.apply_variant_struct(**self._receivers)
 
-        if action == 'call':
-            return self._receive_call(detail)
-        elif action == 'reply':
-            return self._receive_reply(detail)
-        else:
-            raise error.MalformedMessage()
+    _receivers = FunctionTableProperty('_')
+
+    @_receivers.register
+    def _call(self, id, target, method, params):
+        obj = self._resolve_sref(target)
+        raise NotImplementedError((id, target, method, params, obj))
+
+    @_receivers.register
+    def _reply(self, id, result):
+        raise NotImplementedError((id, result))
 
     @not_implemented
     def _send_call(self, callid, target, method, params):
         pass
 
-    @not_implemented
-    def _receive_call(self, detail):
-        pass
-
-    @not_implemented
-    def _receive_reply(self, detail):
-        pass
+    def _resolve_sref(self, sref):
+        if sref is None:
+            return self._rootobj
+        else:
+            raise NotImplementedError(sref)
