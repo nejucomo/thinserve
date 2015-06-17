@@ -8,3 +8,8 @@ def not_implemented(f):
         f(*a, **kw)
         raise NotImplementedError((f, a, kw))
     return g
+
+
+def Singleton(C):
+    """A class decorator for singleton classes."""
+    return C()
