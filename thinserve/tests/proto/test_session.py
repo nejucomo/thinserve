@@ -51,62 +51,56 @@ class SessionTests (TestCase):
         # Do not return d, which will never fire.
 
     def test_receive_n_immediate_calls_then_gather_n_data_replies(self):
-        @self._rnictgnr('eat_a_fruit')
-        def take_messages(messages):
-            check_lists_equal(
-                self,
-                [
-                    ['reply',
-                     {'id': callid,
-                      'result': ['data', reply]}]
+        self._receive_n_calls_check_replies(
+            'eat_a_fruit',
+            [
+                ['reply',
+                 {'id': callid,
+                  'result': ['data', reply]}]
 
-                    for callid, reply
-                    in enumerate(self.replies)
-                ],
-                messages)
+                for callid, reply
+                in enumerate(self.replies)
+            ])
 
     def test_receive_n_immediate_calls_then_gather_n_error_replies(self):
         tmpl = 'unexpected type {actual}, expecting {expected}'
 
-        results = [
-            ['reply',
-             {'id': i,
-              'result': ['error',
-                         {'template': tmpl,
-                          'params': {'expected': 'int',
-                                     'actual': 'str'},
-                          'path': '/call.method/throw_a_fruit.fruit',
-                          'message': 'Fruit #{}'.format(i)}]}]
+        self._receive_n_calls_check_replies(
+            'throw_a_fruit',
+            [
+                ['reply',
+                 {'id': i,
+                  'result': ['error',
+                             {'template': tmpl,
+                              'params': {'expected': 'int',
+                                         'actual': 'str'},
+                              'path': '/call.method/throw_a_fruit.fruit',
+                              'message': 'Fruit #{}'.format(i)}]}]
 
-            for i
-            in range(len(self.params))
-        ]
+                for i
+                in range(len(self.params))
+            ])
 
-        @self._rnictgnr('throw_a_fruit')
-        def take_messages(messages):
-            check_lists_equal(self, results, messages)
+    def _receive_n_calls_check_replies(self, methodname, expectedreplies):
 
-    def _rnictgnr(self, methodname):
-        def decorator(f):
-            callpairs = zip(self.params, self.replies)
+        callpairs = zip(self.params, self.replies)
 
-            for callid, (param, reply) in enumerate(callpairs):
-                self._eaf_info = (param, reply)
-                self.s.receive_message(
-                    LazyParser(
-                        ['call',
-                         {'id': callid,
-                          'target': None,
-                          'method': [methodname, {'fruit': param}]}]))
+        for callid, (param, reply) in enumerate(callpairs):
+            self._eaf_info = (param, reply)
+            self.s.receive_message(
+                LazyParser(
+                    ['call',
+                     {'id': callid,
+                      'target': None,
+                      'method': [methodname, {'fruit': param}]}]))
 
-            d = self.s.gather_outgoing_messages()
+        d = self.s.gather_outgoing_messages()
 
-            # The deferred is called with a reply:
-            self.failUnless(d.called)
-            d.addCallback(f)
-            return d
-
-        return decorator
+        # The deferred is called with a reply:
+        self.failUnless(d.called)
+        d.addCallback(
+            lambda msgs: check_lists_equal(self, expectedreplies, msgs))
+        return d
 
     def test_gather_n_calls_then_receive_n_replies(self):
         fakeid = 'fake-client-id'
