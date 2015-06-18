@@ -1,6 +1,7 @@
 from twisted.internet import defer
 from twisted.trial.unittest import TestCase
 from thinserve.api.referenceable import Referenceable
+from thinserve.api.remerr import RemoteError
 from thinserve.proto import session
 from thinserve.proto.lazyparser import LazyParser
 from thinserve.tests.testutil import check_lists_equal
@@ -51,7 +52,7 @@ class SessionTests (TestCase):
         # Do not return d, which will never fire.
 
     def test_receive_n_immediate_calls_then_gather_n_data_replies(self):
-        self._receive_n_calls_check_replies(
+        return self._receive_n_calls_check_replies(
             'eat_a_fruit',
             [
                 ['reply',
@@ -65,7 +66,7 @@ class SessionTests (TestCase):
     def test_receive_n_immediate_calls_then_gather_n_error_replies(self):
         tmpl = 'unexpected type {actual}, expecting {expected}'
 
-        self._receive_n_calls_check_replies(
+        return self._receive_n_calls_check_replies(
             'throw_a_fruit',
             [
                 ['reply',
@@ -102,7 +103,25 @@ class SessionTests (TestCase):
             lambda msgs: check_lists_equal(self, expectedreplies, msgs))
         return d
 
-    def test_gather_n_calls_then_receive_n_replies(self):
+    def test_gather_n_calls_then_receive_n_data_replies(self):
+        return self._gather_n_calls_then_receive_replies(
+            'eat_a_fruit',
+            make_result=lambda reply: ['data', reply],
+            check_result=lambda res, reply: self.assertIs(reply, res.unwrap()),
+            check_err=None)
+
+    def test_gather_n_calls_then_receive_n_error_replies(self):
+        return self._gather_n_calls_then_receive_replies(
+            'eat_a_fruit',
+            make_result=lambda reply: ['error', reply],
+            check_result=lambda _x, _y: self.fail('Unexpected'),
+            check_err=lambda f: self.assertIsInstance(f.value, RemoteError))
+
+    def _gather_n_calls_then_receive_replies(self,
+                                             methodname,
+                                             make_result,
+                                             check_result,
+                                             check_err):
         fakeid = 'fake-client-id'
 
         repdefs = []
@@ -112,7 +131,7 @@ class SessionTests (TestCase):
             repdefs.append(
                 self.s._send_call(
                     target=fakeid,
-                    method='eat_a_fruit',
+                    method=methodname,
                     params={'fruit': param}))
 
         d = self.s.gather_outgoing_messages()
@@ -127,7 +146,7 @@ class SessionTests (TestCase):
                     ['call',
                      {'id': callid,
                       'target': fakeid,
-                      'method': ['eat_a_fruit', {'fruit': param}]}]
+                      'method': [methodname, {'fruit': param}]}]
 
                     for callid, param
                     in enumerate(self.params)
@@ -141,11 +160,10 @@ class SessionTests (TestCase):
                     LazyParser(
                         ['reply',
                          {'id': callid,
-                          'result': ['data', reply]}]))
+                          'result': make_result(reply)}]))
 
                 self.failUnless(d.called)
-
-                d.addCallback(lambda res: self.assertIs(reply, res.unwrap()))
+                d.addCallbacks(check_result, check_err, callbackArgs=(reply,))
 
         # Note: d is done here, we can forget it.
         return defer.DeferredList(repdefs)
