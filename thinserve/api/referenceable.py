@@ -67,3 +67,4 @@ class Referenceable (object):
     # Class Private:
     def _register_method(self, f, name):
         self._methodcache[f] = name
+        return f
