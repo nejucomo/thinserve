@@ -48,10 +48,7 @@ class LazyParser (object):
             in self.parse_type(dict).iteritems()
         )
 
-        argnames, haskw, dc = get_arg_info(f)
-        check_for_missing_or_unknown(
-            argnames, params.keys(), haskw, dc, self._path)
-
+        self._check_arg_info(f, params.keys())
         return f(**params)
 
     def apply_variant_struct(self, **fs):
@@ -66,11 +63,14 @@ class LazyParser (object):
     def apply_variant(self, **fs):
         [tag, body] = self._parse_predicate(
             lambda v: (isinstance(v, list) and
-                       len(v) == 2 and
-                       v[0] in fs),
+                       len(v) == 2),
             error.MalformedVariant, {})
 
-        f = fs[tag]
+        try:
+            f = fs[tag]
+        except KeyError:
+            raise error.UnknownVariantTag(self._path, self._m, tag=tag)
+
         return f(LazyParser(body, '{}/{}'.format(self._path, tag)))
 
     # Private:
@@ -78,57 +78,53 @@ class LazyParser (object):
         if p(self._m):
             return self._m
         else:
-            raise errcls(self._path, **params)
+            raise errcls(self._path, self._m, **params)
 
+    def _check_arg_info(self, f, paramnames):
+        assert callable(f), repr(f)
 
-def get_arg_info(f):
-    assert callable(f), repr(f)
-
-    if type(f) is FunctionType:
-        protectfirst = False
-    elif type(f) is MethodType:
-        protectfirst = True
-    elif type(f) in (type, ClassType):
-        # It's a class:
-        protectfirst = True
-        if getattr(f, '__new__', object.__new__) is not object.__new__:
-            f = f.__new__
+        if type(f) is FunctionType:
+            protectfirst = False
+        elif type(f) is MethodType:
+            protectfirst = True
+        elif type(f) in (type, ClassType):
+            # It's a class:
+            protectfirst = True
+            if getattr(f, '__new__', object.__new__) is not object.__new__:
+                f = f.__new__
+            else:
+                f = f.__init__
+        elif isinstance(type(f), type) or type(f) is InstanceType:
+            # It's a new-style class instance:
+            protectfirst = True
+            f = f.__call__
         else:
-            f = f.__init__
-    elif isinstance(type(f), type) or type(f) is InstanceType:
-        # It's a new-style class instance:
-        protectfirst = True
-        f = f.__call__
-    else:
-        assert False, 'Unsupported callable: {!r}'.format(f)
+            assert False, 'Unsupported callable: {!r}'.format(f)
 
-    argnames, _, keywords, defaults = inspect.getargspec(f)
-    # assertion: varargs is always ignored and unreachable from
-    # remote attackers.
+        argnames, _, keywords, defaults = inspect.getargspec(f)
+        # assertion: varargs is always ignored and unreachable from
+        # remote attackers.
 
-    if protectfirst:
-        # Protect self/cls parameters:
-        argnames.pop(0)
+        if protectfirst:
+            # Protect self/cls parameters:
+            argnames.pop(0)
 
-    haskeywords = keywords is not None
-    defcount = 0 if defaults is None else len(defaults)
+        defcount = 0 if defaults is None else len(defaults)
 
-    return argnames, haskeywords, defcount
+        if defcount == 0:
+            required = set(argnames)
+        else:
+            required = set(argnames[:-defcount])
 
+        actual = set(paramnames)
 
-def check_for_missing_or_unknown(argnames, paramnames, haskw, defcount, path):
-    if defcount == 0:
-        required = set(argnames)
-    else:
-        required = set(argnames[:-defcount])
+        missing = required - actual
+        if missing:
+            raise error.MissingStructKeys(
+                self._path, self._m, keys=list(missing))
 
-    actual = set(paramnames)
-
-    missing = required - actual
-    if missing:
-        raise error.MissingStructKeys(path, keys=list(missing))
-
-    if not haskw:
-        unknown = actual - set(argnames)
-        if unknown:
-            raise error.UnexpectedStructKeys(path, keys=list(unknown))
+        if keywords is None:
+            unknown = actual - set(argnames)
+            if unknown:
+                raise error.UnexpectedStructKeys(
+                    self._path, self._m, keys=list(unknown))

@@ -131,8 +131,8 @@ class ThinAPIResourceTests (TestCase):
             'POST', [],
             msg,
             True, 400,
-            {"template": error.MalformedVariant.Template,
-             "params": {}})
+            {"template": error.UnknownVariantTag.Template,
+             "params": {'tag': 'create_disaster'}})
 
     def test_error_GET_bad_postpath(self):
         self._make_request(
