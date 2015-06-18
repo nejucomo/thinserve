@@ -58,7 +58,7 @@ class MalformedMessage (ProtocolError):
 
 
 class UnexpectedType (MalformedMessage):
-    Template = 'expected type {actual}, expecting {expected}'
+    Template = 'unexpected type {actual}, expecting {expected}'
 
 
 class FailedPredicate (MalformedMessage):

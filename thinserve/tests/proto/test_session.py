@@ -14,7 +14,7 @@ class SessionTests (TestCase):
         @Referenceable
         class C (object):
             @Referenceable.Method
-            def eat_a_fruit(_, fruit):
+            def eat_a_fruit(s, fruit):
                 realfruit = fruit.parse_type(str)
 
                 # Note: self is outer self (a SessionTests instance):
@@ -24,6 +24,10 @@ class SessionTests (TestCase):
 
                 self.assertEqual(param, realfruit)
                 return ret
+
+            @Referenceable.Method
+            def throw_a_fruit(s, fruit):
+                fruit.parse_type(int)
 
         self.root = C()
         self.s = session.Session(self.root)
@@ -46,24 +50,8 @@ class SessionTests (TestCase):
 
         # Do not return d, which will never fire.
 
-    def test_receive_n_immediate_calls_then_gather_n_replies(self):
-        callpairs = zip(self.params, self.replies)
-
-        for callid, (param, reply) in enumerate(callpairs):
-            self._eaf_info = (param, reply)
-            self.s.receive_message(
-                LazyParser(
-                    ['call',
-                     {'id': callid,
-                      'target': None,
-                      'method': ['eat_a_fruit', {'fruit': param}]}]))
-
-        d = self.s.gather_outgoing_messages()
-
-        # The deferred is called with a reply:
-        self.failUnless(d.called)
-
-        @d.addCallback
+    def test_receive_n_immediate_calls_then_gather_n_data_replies(self):
+        @self._rnictgnr('eat_a_fruit')
         def take_messages(messages):
             check_lists_equal(
                 self,
@@ -77,7 +65,48 @@ class SessionTests (TestCase):
                 ],
                 messages)
 
-        return d
+    def test_receive_n_immediate_calls_then_gather_n_error_replies(self):
+        tmpl = 'unexpected type {actual}, expecting {expected}'
+
+        results = [
+            ['reply',
+             {'id': i,
+              'result': ['error',
+                         {'template': tmpl,
+                          'params': {'expected': 'int',
+                                     'actual': 'str'},
+                          'path': '/call.method/throw_a_fruit.fruit',
+                          'message': 'Fruit #{}'.format(i)}]}]
+
+            for i
+            in range(len(self.params))
+        ]
+
+        @self._rnictgnr('throw_a_fruit')
+        def take_messages(messages):
+            check_lists_equal(self, results, messages)
+
+    def _rnictgnr(self, methodname):
+        def decorator(f):
+            callpairs = zip(self.params, self.replies)
+
+            for callid, (param, reply) in enumerate(callpairs):
+                self._eaf_info = (param, reply)
+                self.s.receive_message(
+                    LazyParser(
+                        ['call',
+                         {'id': callid,
+                          'target': None,
+                          'method': [methodname, {'fruit': param}]}]))
+
+            d = self.s.gather_outgoing_messages()
+
+            # The deferred is called with a reply:
+            self.failUnless(d.called)
+            d.addCallback(f)
+            return d
+
+        return decorator
 
     def test_gather_n_calls_then_receive_n_replies(self):
         fakeid = 'fake-client-id'
