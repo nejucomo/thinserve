@@ -3,6 +3,7 @@ from unittest import TestCase
 from twisted.web import server
 from mock import MagicMock, call, patch
 from thinserve.api.apiresource import ThinAPIResource
+from thinserve.proto import error
 from thinserve.tests.testutil import check_mock, EqCb
 
 
@@ -88,7 +89,7 @@ class ThinAPIResourceTests (TestCase):
             'GET', [],
             None,
             False, 400,
-            {"template": "internal error",
+            {"template": error.InternalError.Template,
              "params": {}})
 
     def test_error_GET(self):
@@ -96,7 +97,7 @@ class ThinAPIResourceTests (TestCase):
             'GET', [],
             None,
             True, 400,
-            {"template": "unsupported HTTP method \"{method}\"",
+            {"template": error.UnsupportedHTTPMethod.Template,
              "params": {"method": "GET"}})
 
     def test_error_unsupported_method(self):
@@ -104,7 +105,7 @@ class ThinAPIResourceTests (TestCase):
             'HEAD', [],
             None,
             False, 400,
-            {"template": "unsupported HTTP method \"{method}\"",
+            {"template": error.UnsupportedHTTPMethod.Template,
              "params": {"method": "HEAD"}})
 
     def test_error_GET_with_body(self):
@@ -112,23 +113,25 @@ class ThinAPIResourceTests (TestCase):
             'GET', [],
             'foobody',
             True, 400,
-            {"template": "unexpected HTTP body",
+            {"template": error.UnexpectedHTTPBody.Template,
              "params": {}})
 
     def test_error_POST_root_malformed_message(self):
+        msg = {"unexpected": "message"}
         self._make_request(
             'POST', [],
-            {"unexpected": "message"},
+            msg,
             True, 400,
-            {"template": "malformed message",
+            {"template": error.MalformedVariant.Template,
              "params": {}})
 
     def test_error_POST_root_unknown_operation(self):
+        msg = ["create_disaster", 42]
         self._make_request(
             'POST', [],
-            ["create_disaster", 42],
+            msg,
             True, 400,
-            {"template": "malformed message",
+            {"template": error.MalformedVariant.Template,
              "params": {}})
 
     def test_error_GET_bad_postpath(self):
@@ -136,7 +139,7 @@ class ThinAPIResourceTests (TestCase):
             'GET', ['foo', 'bar'],
             None,
             True, 400,
-            {"template": 'invalid parameter "{name}"',
+            {"template": error.InvalidParameter.Template,
              "params": {"name": "session"}})
 
     def test_error_GET_unknown_session(self):
@@ -144,7 +147,7 @@ class ThinAPIResourceTests (TestCase):
             'GET', ['I am an unknown session id'],
             None,
             True, 400,
-            {"template": 'invalid parameter "{name}"',
+            {"template": error.InvalidParameter.Template,
              "params": {"name": "session"}})
 
     def test_error_POST_malformed_json(self):
@@ -152,7 +155,7 @@ class ThinAPIResourceTests (TestCase):
             'POST', [],
             'mangled JSON',
             True, 400,
-            {"template": 'malformed JSON',
+            {"template": error.MalformedJSON.Template,
              "params": {}})
 
     # Helper code:

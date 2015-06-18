@@ -16,14 +16,21 @@ class LazyParser (object):
     def unwrap(self):
         return self._m
 
-    def parse_predicate(self, p):
+    def parse_predicate(self, p, errval):
+        assert isinstance(errval, error.MalformedMessage), \
+            repr(errval)
+
         if p(self._m):
             return self._m
         else:
-            raise error.MalformedMessage()
+            raise errval
 
     def parse_type(self, t):
-        return self.parse_predicate(lambda v: isinstance(v, t))
+        return self.parse_predicate(
+            lambda v: isinstance(v, t),
+            error.UnexpectedType(
+                actual=type(self._m).__name__,
+                expected=t.__name__))
 
     def iter(self):
         l = self.parse_type(list)
@@ -58,8 +65,8 @@ class LazyParser (object):
         [tag, body] = self.parse_predicate(
             lambda v: (isinstance(v, list) and
                        len(v) == 2 and
-                       v[0] in fs)
-            )
+                       v[0] in fs),
+            error.MalformedVariant())
 
         f = fs[tag]
         return f(LazyParser(body))

@@ -21,7 +21,8 @@ class LazyParser_type_and_predicate (TestCase):
         self.assertRaises(
             error.MalformedMessage,
             lp.parse_predicate,
-            lambda x: x % 2 == 0)
+            lambda x: x % 2 == 0,
+            error.FailedPredicate(description='test thingy'))
 
     def test_pos_parse_type(self):
         lp = LazyParser(3)

@@ -28,7 +28,19 @@ class MalformedJSON (ProtocolError):
 
 
 class MalformedMessage (ProtocolError):
-    Template = 'malformed message'
+    pass  # Abstract base class.
+
+
+class UnexpectedType (MalformedMessage):
+    Template = 'expected type {actual}, expecting {expected}'
+
+
+class FailedPredicate (MalformedMessage):
+    Template = 'failed predicate {description}'
+
+
+class MalformedVariant (MalformedMessage):
+    Template = 'expected variant [<tag>, <value>]'
 
 
 class UnexpectedStructKeys (MalformedMessage):
