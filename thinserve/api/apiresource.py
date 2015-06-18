@@ -66,13 +66,7 @@ class ThinAPIResource (resource.Resource):
             req.setResponseCode(200)
             return response
 
-        @d.addErrback
-        def response_failed(failure):
-            if isinstance(failure.value, error.ProtocolError):
-                return failure
-            else:
-                failure.printTraceback()
-                raise error.InternalError()
+        d.addErrback(error.InternalError.coerce_unexpected_failure)
 
         @d.addErrback
         def response_protocol_error(failure):

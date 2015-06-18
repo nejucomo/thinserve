@@ -4,6 +4,7 @@ from twisted.internet import defer
 from thinserve.api.referenceable import Referenceable
 from thinserve.api.remerr import RemoteError
 from thinserve.proto.shuttle import Shuttle
+from thinserve.proto.error import InternalError
 
 
 class Session (object):
@@ -32,8 +33,12 @@ class Session (object):
         methods = Referenceable._get_bound_methods(obj)
 
         d = defer.maybeDeferred(method.apply_variant_struct, **methods)
+
         d.addCallback(lambda r: ['data', r])
-        d.addErrback(lambda f: ['error', f])
+
+        d.addErrback(InternalError.coerce_unexpected_failure)
+        d.addErrback(lambda f: ['error', f.value.as_proto_object()])
+
         d.addCallback(lambda reply: self._send_reply(id, reply))
 
     @_receivers.register

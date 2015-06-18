@@ -10,9 +10,24 @@ class ProtocolError (Exception):
         Exception.__init__(self, self.Template.format(**kw))
         self.params = kw
 
+    def as_proto_object(self):
+        return {
+            'template': self.Template,
+            'params': self.params,
+            }
+
 
 class InternalError (ProtocolError):
     Template = 'internal error'
+
+    @staticmethod
+    def coerce_unexpected_failure(f):
+        '''Log unexpected exceptions and coerce into InternalError.'''
+        if isinstance(f.value, ProtocolError):
+            return f
+        else:
+            f.printTraceback()
+            raise InternalError()
 
 
 class UnsupportedHTTPMethod (ProtocolError):
