@@ -1,14 +1,32 @@
-from unittest import TestCase
-from mock import MagicMock, call
+from twisted.internet import defer
+from twisted.trial.unittest import TestCase
+from thinserve.api.referenceable import Referenceable
 from thinserve.proto import session
 from thinserve.proto.lazyparser import LazyParser
-from thinserve.tests.testutil import check_mock, check_lists_equal
+from thinserve.tests.testutil import check_lists_equal
 
 
 class SessionTests (TestCase):
     def setUp(self):
-        self.m_root = MagicMock(name='createsession')
-        self.s = session.Session(self.m_root)
+
+        self._eaf_info = None
+
+        @Referenceable
+        class C (object):
+            @Referenceable.Method
+            def eat_a_fruit(_, fruit):
+                realfruit = fruit.parse_type(str)
+
+                # Note: self is outer self (a SessionTests instance):
+                self.assertIsNotNone(self._eaf_info)
+                (param, ret) = self._eaf_info
+                self._eaf_info = None
+
+                self.assertEqual(param, realfruit)
+                return ret
+
+        self.root = C()
+        self.s = session.Session(self.root)
 
         # Setup some immediate call/reply info:
         self.replies = []
@@ -23,17 +41,16 @@ class SessionTests (TestCase):
     def test_empty_gather_outgoing_messages(self):
         d = self.s.gather_outgoing_messages()
 
-        check_mock(
-            self, self.m_root,
-            [])
-
         # The deferred should be waiting to fire:
         self.failIf(d.called)
 
-    def test_receive_n_immediate_calls_then_gather_n_replies(self):
-        self.m_root.eat_a_fruit.side_effect = self.replies
+        # Do not return d, which will never fire.
 
-        for callid, param in enumerate(self.params):
+    def test_receive_n_immediate_calls_then_gather_n_replies(self):
+        callpairs = zip(self.params, self.replies)
+
+        for callid, (param, reply) in enumerate(callpairs):
+            self._eaf_info = (param, reply)
             self.s.receive_message(
                 LazyParser(
                     ['call',
@@ -43,11 +60,7 @@ class SessionTests (TestCase):
 
         d = self.s.gather_outgoing_messages()
 
-        check_mock(
-            self, self.m_root,
-            [call.eat_a_fruit(fruit=p) for p in self.params])
-
-        # The deferred be called with a reply:
+        # The deferred is called with a reply:
         self.failUnless(d.called)
 
         @d.addCallback
@@ -64,16 +77,17 @@ class SessionTests (TestCase):
                 ],
                 messages)
 
+        return d
+
     def test_gather_n_calls_then_receive_n_replies(self):
         fakeid = 'fake-client-id'
 
         repdefs = []
 
         # Prime the (private) outgoing call queue:
-        for callid, param in enumerate(self.params):
+        for param in self.params:
             repdefs.append(
                 self.s._send_call(
-                    callid=callid,
                     target=fakeid,
                     method='eat_a_fruit',
                     params={'fruit': param}))
@@ -92,7 +106,7 @@ class SessionTests (TestCase):
                       'target': fakeid,
                       'method': ['eat_a_fruit', {'fruit': param}]}]
 
-                    for callid, reply
+                    for callid, param
                     in enumerate(self.params)
                 ],
                 messages)
@@ -108,4 +122,7 @@ class SessionTests (TestCase):
 
                 self.failUnless(d.called)
 
-                d.addCallback(lambda res: self.assertIs(res, reply))
+                d.addCallback(lambda res: self.assertIs(reply, res.unwrap()))
+
+        # Note: d is done here, we can forget it.
+        return defer.DeferredList(repdefs)

@@ -1,3 +1,4 @@
+import itertools
 from functable import FunctionTableProperty
 from twisted.internet import defer
 from thinserve.api.referenceable import Referenceable
@@ -11,6 +12,7 @@ class Session (object):
             'The root object must be @Referenceable.'
         self._rootobj = rootobj
         self._pendingcalls = {}
+        self._idgen = itertools.count(0)
         self._shuttle = Shuttle()
 
     def gather_outgoing_messages(self):
@@ -21,10 +23,10 @@ class Session (object):
     def receive_message(self, msg):
         msg.apply_variant_struct(**self._receivers)
 
-    _receivers = FunctionTableProperty('_')
+    _receivers = FunctionTableProperty('_receive_')
 
     @_receivers.register
-    def _call(self, id, target, method):
+    def _receive_call(self, id, target, method):
         id = id.parse_type(int)
         obj = self._resolve_sref(target.unwrap())
         methods = Referenceable._get_bound_methods(obj)
@@ -35,23 +37,26 @@ class Session (object):
         d.addCallback(lambda reply: self._send_reply(id, reply))
 
     @_receivers.register
-    def _reply(self, id, result):
+    def _receive_reply(self, id, result):
         id = id.parse_type(int)
 
-        d = self._pendingcalls[id]
+        d = self._pendingcalls.pop(id)
 
         result.apply_variant(
             data=d.callback,
             error=lambda lp: d.errback(RemoteError(lp)))
 
-    def _send_call(self, callid, target, method, params):
+    def _send_call(self, target, method, params):
+        callid = self._idgen.next()
+
         self._shuttle.send_message(
             ['call',
-             {'id': id,
+             {'id': callid,
               'target': target,
               'method': [method, params]}])
+
         d = defer.Deferred()
-        self._pendingcalls[id] = d
+        self._pendingcalls[callid] = d
         return d
 
     def _send_reply(self, id, result):
