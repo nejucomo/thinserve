@@ -7,8 +7,9 @@ from thinserve.proto import error
 
 
 class LazyParser (object):
-    def __init__(self, msg):
+    def __init__(self, msg, _path=''):
         self._m = msg
+        self._path = _path
 
     def __repr__(self):
         return '<{} {!r}>'.format(type(self).__name__, self._m)
@@ -16,40 +17,41 @@ class LazyParser (object):
     def unwrap(self):
         return self._m
 
-    def parse_predicate(self, p, errval):
-        assert isinstance(errval, error.MalformedMessage), \
-            repr(errval)
-
-        if p(self._m):
-            return self._m
-        else:
-            raise errval
+    def parse_predicate(self, p):
+        desc = p.__doc__
+        assert desc is not None, repr(p)
+        return self._parse_predicate(
+            p,
+            error.FailedPredicate,
+            {'description': p.__doc__})
 
     def parse_type(self, t):
-        return self.parse_predicate(
+        return self._parse_predicate(
             lambda v: isinstance(v, t),
-            error.UnexpectedType(
-                actual=type(self._m).__name__,
-                expected=t.__name__))
+            error.UnexpectedType,
+            {'actual': type(self._m).__name__,
+             'expected': t.__name__})
 
     def iter(self):
         l = self.parse_type(list)
 
         def g():
-            for x in l:
-                yield LazyParser(x)
+            for i, x in enumerate(l):
+                yield LazyParser(x, '{}[{}]'.format(self._path, i))
 
         return g()
 
     def apply_struct(self, f):
         params = dict(
-            (k, LazyParser(v))
+            (k, LazyParser(v, '{}.{}'.format(self._path, k)))
             for (k, v)
             in self.parse_type(dict).iteritems()
         )
 
         argnames, haskw, dc = get_arg_info(f)
-        check_for_missing_or_unknown(argnames, params.keys(), haskw, dc)
+        check_for_missing_or_unknown(
+            argnames, params.keys(), haskw, dc, self._path)
+
         return f(**params)
 
     def apply_variant_struct(self, **fs):
@@ -62,14 +64,21 @@ class LazyParser (object):
         )
 
     def apply_variant(self, **fs):
-        [tag, body] = self.parse_predicate(
+        [tag, body] = self._parse_predicate(
             lambda v: (isinstance(v, list) and
                        len(v) == 2 and
                        v[0] in fs),
-            error.MalformedVariant())
+            error.MalformedVariant, {})
 
         f = fs[tag]
-        return f(LazyParser(body))
+        return f(LazyParser(body, '{}/{}'.format(self._path, tag)))
+
+    # Private:
+    def _parse_predicate(self, p, errcls, params):
+        if p(self._m):
+            return self._m
+        else:
+            raise errcls(self._path, **params)
 
 
 def get_arg_info(f):
@@ -107,7 +116,7 @@ def get_arg_info(f):
     return argnames, haskeywords, defcount
 
 
-def check_for_missing_or_unknown(argnames, paramnames, haskw, defcount):
+def check_for_missing_or_unknown(argnames, paramnames, haskw, defcount, path):
     if defcount == 0:
         required = set(argnames)
     else:
@@ -117,9 +126,9 @@ def check_for_missing_or_unknown(argnames, paramnames, haskw, defcount):
 
     missing = required - actual
     if missing:
-        raise error.MissingStructKeys(keys=list(missing))
+        raise error.MissingStructKeys(path, keys=list(missing))
 
     if not haskw:
         unknown = actual - set(argnames)
         if unknown:
-            raise error.UnexpectedStructKeys(keys=list(unknown))
+            raise error.UnexpectedStructKeys(path, keys=list(unknown))

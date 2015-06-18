@@ -43,7 +43,16 @@ class MalformedJSON (ProtocolError):
 
 
 class MalformedMessage (ProtocolError):
-    pass  # Abstract base class.
+    def __init__(self, path, **params):
+        ProtocolError.__init__(self, **params)
+        self.path = path
+
+    def as_proto_object(self):
+        return {
+            'template': self.Template,
+            'params': self.params,
+            'path': self.path,
+            }
 
 
 class UnexpectedType (MalformedMessage):
@@ -51,7 +60,7 @@ class UnexpectedType (MalformedMessage):
 
 
 class FailedPredicate (MalformedMessage):
-    Template = 'failed predicate {description}'
+    Template = 'failed predicate: {description}'
 
 
 class MalformedVariant (MalformedMessage):

@@ -18,11 +18,11 @@ class LazyParser_type_and_predicate (TestCase):
     def test_neg_parse_predicate(self):
         lp = LazyParser(3)
 
-        self.assertRaises(
-            error.MalformedMessage,
-            lp.parse_predicate,
-            lambda x: x % 2 == 0,
-            error.FailedPredicate(description='test thingy'))
+        def is_even(x):
+            '''it is an even value'''
+            return x % 2 == 0
+
+        self.assertRaises(error.FailedPredicate, lp.parse_predicate, is_even)
 
     def test_pos_parse_type(self):
         lp = LazyParser(3)
@@ -272,3 +272,26 @@ class LazyParser_variant (TestCase):
         r = lp.apply_variant(animal=check)
 
         self.assertIs(sentinel, r)
+
+
+class LazyParser_path (TestCase):
+    def test_neg_path_in_exception(self):
+        lp = LazyParser(
+            {'messages':
+             [None,
+              ['fruit', {'name': 'banana'}]]})
+        self.assertEqual(lp._path, '')
+
+        messages = lp.apply_struct(lambda messages: messages)
+        self.assertEqual(messages._path, '.messages')
+
+        variant = list(messages.iter())[1]
+        self.assertEqual(variant._path, '.messages[1]')
+
+        name = variant.apply_variant_struct(fruit=lambda name: name)
+        self.assertEqual(name._path, '.messages[1]/fruit.name')
+
+        try:
+            name.parse_type(int)
+        except error.MalformedMessage as mm:
+            self.assertEqual('.messages[1]/fruit.name', mm.path)
