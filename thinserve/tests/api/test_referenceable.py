@@ -42,4 +42,3 @@ class ReferenceableTests (TestCase):
         i = C()
 
         self.failUnless(Referenceable._check(i))
-
