@@ -1,29 +1,22 @@
 from functable import FunctionTableProperty
 from twisted.internet import defer
-from thinserve.util import not_implemented
+from thinserve.api.referenceable import Referenceable
+from thinserve.api.remerr import RemoteError
+from thinserve.proto.shuttle import Shuttle
 
 
 class Session (object):
     def __init__(self, rootobj):
+        assert Referenceable._check(rootobj), \
+            'The root object must be @Referenceable.'
         self._rootobj = rootobj
-        self._outq = None
-        self._pendingd = None
+        self._pendingcalls = {}
+        self._shuttle = Shuttle()
 
     def gather_outgoing_messages(self):
-        if self._pendingd is None:
-            d = defer.Deferred()
-            if self._outq is None:
-                self._pendingd = d
-            else:
-                d.callback(self._outq)
-                self._outq = None
-            return d
-        else:
-            assert self._outq is None, repr(self._outq)
-            # The new request bumps the old one, which fires empty:
-            self._pendingq.callback([])
-            self._pendingq = defer.Deferred()
-            return self._pendingq
+        d = defer.Deferred()
+        self._shuttle.gather_messages(d)
+        return d
 
     def receive_message(self, msg):
         msg.apply_variant_struct(**self._receivers)
@@ -31,17 +24,40 @@ class Session (object):
     _receivers = FunctionTableProperty('_')
 
     @_receivers.register
-    def _call(self, id, target, method, params):
-        obj = self._resolve_sref(target)
-        raise NotImplementedError((id, target, method, params, obj))
+    def _call(self, id, target, method):
+        id = id.parse_type(int)
+        obj = self._resolve_sref(target.unwrap())
+        methods = Referenceable._get_bound_methods(obj)
+
+        d = defer.maybeDeferred(method.apply_variant_struct, **methods)
+        d.addCallback(lambda r: ['data', r])
+        d.addErrback(lambda f: ['error', f])
+        d.addCallback(lambda reply: self._send_reply(id, reply))
 
     @_receivers.register
     def _reply(self, id, result):
-        raise NotImplementedError((id, result))
+        id = id.parse_type(int)
 
-    @not_implemented
+        d = self._pendingcalls[id]
+
+        result.apply_variant(
+            data=d.callback,
+            error=lambda lp: d.errback(RemoteError(lp)))
+
     def _send_call(self, callid, target, method, params):
-        pass
+        self._shuttle.send_message(
+            ['call',
+             {'id': id,
+              'target': target,
+              'method': [method, params]}])
+        d = defer.Deferred()
+        self._pendingcalls[id] = d
+        return d
+
+    def _send_reply(self, id, result):
+        self._shuttle.send_message(
+            ['reply',
+             {'id': id, 'result': result}])
 
     def _resolve_sref(self, sref):
         if sref is None:

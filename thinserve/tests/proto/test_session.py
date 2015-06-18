@@ -39,8 +39,7 @@ class SessionTests (TestCase):
                     ['call',
                      {'id': callid,
                       'target': None,
-                      'method': 'eat_a_fruit',
-                      'params': {'fruit': param}}]))
+                      'method': ['eat_a_fruit', {'fruit': param}]}]))
 
         d = self.s.gather_outgoing_messages()
 
@@ -91,8 +90,7 @@ class SessionTests (TestCase):
                     ['call',
                      {'id': callid,
                       'target': fakeid,
-                      'method': 'eat_a_fruit',
-                      'params': {'fruit': param}}]
+                      'method': ['eat_a_fruit', {'fruit': param}]}]
 
                     for callid, reply
                     in enumerate(self.params)
