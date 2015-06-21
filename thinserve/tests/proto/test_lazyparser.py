@@ -19,10 +19,44 @@ class LazyParser_basic (TestCase):
         lp = LazyParser({'x': 42})
         self.assertEqual("<LazyParser {'x': 42}>", repr(lp))
 
-    def test_unwrap(self):
-        sentinel = object()
-        lp = LazyParser(sentinel)
-        self.assertIs(sentinel, lp.unwrap())
+
+class LazyParser_unwrap (TestCase):
+    # These cases unwrap to equal values:
+    _eq_cases = [
+        None, False, True,
+        0, -1, 42,
+        [], {},
+        {'x': 42},
+        ]
+
+    # These cases map left to right when parsing:
+    _uneq_cases = [
+        (['@LIST'], []),
+        (['my_variant', 42], ('my_variant', 42)),
+
+        # Test all three kinds of recursion:
+        (['my_variant', ['@LIST', {'x': ['@LIST']}]],
+         ('my_variant', [{'x': []}])),
+        ]
+
+    _error_cases = [
+        ['foo'],  # Ambiguous: List or variant?
+        ]
+
+    def test_pos_unwrap_eq_values(self):
+        for msg in self._eq_cases:
+            lp = LazyParser(msg)
+            self.assertEqual(msg, lp.unwrap())
+
+    def test_pos_unwrap_uneq_values(self):
+        for msg, expected in self._eq_cases:
+            lp = LazyParser(msg)
+            self.assertEqual(expected, lp.unwrap())
+
+    def test_neg_unwrap(self):
+        for badmsg in self._error_cases:
+            lp = LazyParser(badmsg)
+            self.assertRaises(error.MalformedMessage, lp.unwrap)
 
 
 class LazyParser_type_and_predicate (TestCase):
@@ -52,34 +86,44 @@ class LazyParser_type_and_predicate (TestCase):
 
 class LazyParser_list (TestCase):
     def setUp(self):
-        self.lists = [
-            [],
+        lists = [
+            [0, 1, 2],
             ['x', 'y', 'z'],
             ]
 
+        posmsgs = [
+            [],
+            ['@LIST'],
+        ] + [
+            ['@LIST'] + x
+            for x in lists
+        ]
+
+        self.poslps = [
+            (m[1:], LazyParser(m))
+            for m in posmsgs
+        ]
+
+        self.neglps = [LazyParser(x) for x in lists]
+
     def test_pos_parse_list(self):
-        for x in self.lists:
-            lp = LazyParser(['@LIST'] + x)
+        for x, lp in self.poslps:
             self.assertEqual(x, lp.parse_type(list))
 
-    def test_neg_parse_list(self):
-        for x in self.lists:
-            if x == []:
-                # Skip this special case:
-                continue
+    def test_pos_unwrap(self):
+        for x, lp in self.poslps:
+            self.assertEqual(x, lp.unwrap())
 
-            lp = LazyParser(x)
+    def test_neg_parse_list(self):
+        for lp in self.neglps:
             self.assertRaises(error.MalformedList, lp.parse_type, list)
 
-    def test_pos_parse_empty_list(self):
-        # The empty JSON array is a special case repr of an empty list:
-        lp = LazyParser([])
-        self.assertEqual([], lp.parse_type(list))
+    def test_neg_unwrap(self):
+        for lp in self.neglps:
+            self.assertRaises(error.MalformedList, lp.unwrap)
 
     def test_pos_iter(self):
-        for x in self.lists:
-            lp = LazyParser(['@LIST'] + x)
-
+        for x, lp in self.poslps:
             c = 0
             for (elem, sublp) in zip(x, lp.iter()):
                 c += 1
@@ -88,19 +132,17 @@ class LazyParser_list (TestCase):
 
             self.assertEqual(len(x), c)
 
-    def test_neg_iter_tagless_array(self):
-        lp = LazyParser(['this', 'array', 'has', 'no', 'list', 'tag'])
+    def test_neg_iter(self):
+        for _, lp in self.neglps:
+            self.assertRaises(error.MalformedList, lp.iter)
 
-        self.assertRaises(
-            error.MalformedList,
-            lp.iter)
-
-    def test_neg_iter_non_array(self):
+    def test_neg_non_array(self):
         lp = LazyParser(3)
 
-        self.assertRaises(
-            error.MalformedMessage,
-            lp.iter)
+        for m in [lp.unwrap, lambda: lp.parse_type(list), lp.iter]:
+            self.assertRaises(
+                error.MalformedMessage,
+                m)
 
 
 class LazyParser_struct (TestCase):
