@@ -49,7 +49,7 @@ class LazyParser_unwrap (TestCase):
             self.assertEqual(msg, lp.unwrap())
 
     def test_pos_unwrap_uneq_values(self):
-        for msg, expected in self._eq_cases:
+        for msg, expected in self._uneq_cases:
             lp = LazyParser(msg)
             self.assertEqual(expected, lp.unwrap())
 
@@ -120,7 +120,7 @@ class LazyParser_list (TestCase):
 
     def test_neg_unwrap(self):
         for lp in self.neglps:
-            self.assertRaises(error.MalformedList, lp.unwrap)
+            self.assertRaises(error.MalformedMessage, lp.unwrap)
 
     def test_pos_iter(self):
         for x, lp in self.poslps:
@@ -133,13 +133,13 @@ class LazyParser_list (TestCase):
             self.assertEqual(len(x), c)
 
     def test_neg_iter(self):
-        for _, lp in self.neglps:
+        for lp in self.neglps:
             self.assertRaises(error.MalformedList, lp.iter)
 
     def test_neg_non_array(self):
         lp = LazyParser(3)
 
-        for m in [lp.unwrap, lambda: lp.parse_type(list), lp.iter]:
+        for m in [lambda: lp.parse_type(list), lp.iter]:
             self.assertRaises(
                 error.MalformedMessage,
                 m)

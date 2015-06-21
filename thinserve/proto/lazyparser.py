@@ -19,7 +19,20 @@ class LazyParser (object):
         return '<{} {!r}>'.format(type(self).__name__, self._m)
 
     def unwrap(self):
-        return self._m
+        v = self._peel()
+        if isinstance(v, list):
+            return [lp.unwrap() for lp in v]
+        elif isinstance(v, tuple):
+            (tag, lp) = v
+            return (tag, lp.unwrap())
+        elif isinstance(v, dict):
+            return dict(
+                (k, lp.unwrap())
+                for (k, lp)
+                in v.iteritems()
+                )
+        else:
+            return v
 
     def parse_predicate(self, p):
         desc = p.__doc__
@@ -86,6 +99,31 @@ class LazyParser (object):
         return f(LazyParser(body, '{}/{}'.format(self._path, tag)))
 
     # Private:
+    def _peel(self):
+        v = self._m
+        if isinstance(v, list):
+            if v == []:
+                return []
+            elif v[0] == '@LIST':
+                return [LazyParser(x) for x in v[1:]]
+            else:
+                try:
+                    [tag, value] = v
+                except ValueError:
+                    raise error.MalformedVariant(self._path, v)
+
+                self._verify_identifier(tag)
+                return (tag, LazyParser(value))
+
+        elif isinstance(v, dict):
+            return dict(
+                (self._verify_identifier(k),
+                 LazyParser(v))
+                for (k, v) in v.iteritems())
+
+        else:
+            return v
+
     def _parse_predicate(self, p, errcls, params):
         if p(self._m):
             return self._m
