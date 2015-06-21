@@ -132,7 +132,8 @@ class ThinAPIResourceTests (TestCase):
             msg,
             True, 400,
             {"template": error.UnknownVariantTag.Template,
-             "params": {'tag': 'create_disaster'}})
+             "params": {'tag': 'create_disaster',
+                        'knowntags': ['create_session']}})
 
     def test_error_GET_bad_postpath(self):
         self._make_request(

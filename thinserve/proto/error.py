@@ -43,17 +43,17 @@ class MalformedJSON (ProtocolError):
 
 
 class MalformedMessage (ProtocolError):
-    def __init__(self, path, message, **params):
+    def __init__(self, _path, _msg, **params):
         ProtocolError.__init__(self, **params)
-        self.path = path
-        self.message = message
+        self.path = _path
+        self.msg = _msg
 
     def as_proto_object(self):
         return {
             'template': self.Template,
             'params': self.params,
             'path': self.path,
-            'message': self.message,
+            'message': self.msg,
             }
 
 
@@ -65,12 +65,20 @@ class FailedPredicate (MalformedMessage):
     Template = 'failed predicate: {description}'
 
 
+class InvalidIdentifier (MalformedMessage):
+    Template = 'invalid identifier {ident}'
+
+
+class MalformedList (MalformedMessage):
+    Template = 'invalid list, missing "@LIST" protocol tag'
+
+
 class MalformedVariant (MalformedMessage):
     Template = 'expected variant [<tag>, <value>]'
 
 
 class UnknownVariantTag (MalformedMessage):
-    Template = 'unknown variant tag {tag}'
+    Template = 'unknown variant tag {tag}; expected one of {knowntags}'
 
 
 class UnexpectedStructKeys (MalformedMessage):

@@ -1,9 +1,13 @@
 __all__ = ['LazyParser']
 
 
+import re
 import inspect
 from types import ClassType, InstanceType, FunctionType, MethodType
 from thinserve.proto import error
+
+
+_IdentifierRgx = re.compile(r'^[A-Za-z][A-Za-z0-9_]*$')
 
 
 class LazyParser (object):
@@ -26,11 +30,10 @@ class LazyParser (object):
             {'description': p.__doc__})
 
     def parse_type(self, t):
-        return self._parse_predicate(
-            lambda v: isinstance(v, t),
-            error.UnexpectedType,
-            {'actual': type(self._m).__name__,
-             'expected': t.__name__})
+        if t is list:
+            return self._parse_list()
+        else:
+            return self._parse_real_type(t)
 
     def iter(self):
         l = self.parse_type(list)
@@ -43,7 +46,9 @@ class LazyParser (object):
 
     def apply_struct(self, f):
         params = dict(
-            (k, LazyParser(v, '{}.{}'.format(self._path, k)))
+            (self._verify_identifier(k),
+             LazyParser(v, '{}.{}'.format(self._path, k)))
+
             for (k, v)
             in self.parse_type(dict).iteritems()
         )
@@ -54,7 +59,9 @@ class LazyParser (object):
     def apply_variant_struct(self, **fs):
         return self.apply_variant(
             **dict(
-                (k, lambda lp, f=f: lp.apply_struct(f))
+                (self._verify_identifier(k),
+                 lambda lp, f=f: lp.apply_struct(f))
+
                 for (k, f)
                 in fs.iteritems()
             )
@@ -66,10 +73,15 @@ class LazyParser (object):
                        len(v) == 2),
             error.MalformedVariant, {})
 
+        self._verify_identifier(tag)
         try:
             f = fs[tag]
         except KeyError:
-            raise error.UnknownVariantTag(self._path, self._m, tag=tag)
+            raise error.UnknownVariantTag(
+                self._path,
+                self._m,
+                tag=tag,
+                knowntags=sorted(fs.keys()))
 
         return f(LazyParser(body, '{}/{}'.format(self._path, tag)))
 
@@ -79,6 +91,22 @@ class LazyParser (object):
             return self._m
         else:
             raise errcls(self._path, self._m, **params)
+
+    def _parse_real_type(self, t):
+        return self._parse_predicate(
+            lambda v: isinstance(v, t),
+            error.UnexpectedType,
+            {'actual': type(self._m).__name__,
+             'expected': t.__name__})
+
+    def _parse_list(self):
+        v = self._parse_real_type(list)
+        if v == []:
+            return []
+        elif v[0] == '@LIST':
+            return v[1:]
+        else:
+            raise error.MalformedList(self._path, self._m)
 
     def _check_arg_info(self, f, paramnames):
         assert callable(f), repr(f)
@@ -128,3 +156,12 @@ class LazyParser (object):
             if unknown:
                 raise error.UnexpectedStructKeys(
                     self._path, self._m, keys=list(unknown))
+
+    def _verify_identifier(self, ident):
+        if _IdentifierRgx.match(ident):
+            return ident
+        else:
+            raise error.InvalidIdentifier(
+                self._path,
+                self._m,
+                ident=ident)

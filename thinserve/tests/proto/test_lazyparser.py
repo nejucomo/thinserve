@@ -64,6 +64,10 @@ class LazyParser_list (TestCase):
 
     def test_neg_parse_list(self):
         for x in self.lists:
+            if x == []:
+                # Skip this special case:
+                continue
+
             lp = LazyParser(x)
             self.assertRaises(error.MalformedList, lp.parse_type, list)
 
@@ -196,7 +200,7 @@ class LazyParser_struct (TestCase):
         for badid in InvalidIdentifiers:
             lp = LazyParser({badid: 'thingy'})
 
-            def check(x, y):
+            def check(**_):
                 self._fail_if_called()
 
             self.assertRaises(
@@ -332,7 +336,7 @@ class LazyParser_variant (TestCase):
             lp = LazyParser([badtag, 'value'])
 
             self.assertRaises(
-                error.MalformedIdentifier,
+                error.InvalidIdentifier,
                 lp.apply_variant,
                 foo=lambda _: self.fail('variant should not have applied.'))
 
@@ -341,7 +345,8 @@ class LazyParser_path (TestCase):
     def test_neg_path_in_exception(self):
         lp = LazyParser(
             {'messages':
-             [None,
+             ['@LIST',
+              None,
               ['fruit', {'name': 'banana'}]]})
         self.assertEqual(lp._path, '')
 
