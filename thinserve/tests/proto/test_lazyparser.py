@@ -3,6 +3,17 @@ from thinserve.proto.lazyparser import LazyParser
 from thinserve.proto import error
 
 
+InvalidIdentifiers = [
+    '',
+    '_leading_underscores_disallowed',
+    '@sign_reserved_for_protocol_tags',
+    'has a space',
+    'weird^char',
+    'another-unacceptable-char',
+    '1s_digit_initial',
+]
+
+
 class LazyParser_basic (TestCase):
     def test_repr(self):
         lp = LazyParser({'x': 42})
@@ -39,17 +50,48 @@ class LazyParser_type_and_predicate (TestCase):
             str)
 
 
-class LazyParser_iter (TestCase):
+class LazyParser_list (TestCase):
+    def setUp(self):
+        self.lists = [
+            [],
+            ['x', 'y', 'z'],
+            ]
+
+    def test_pos_parse_list(self):
+        for x in self.lists:
+            lp = LazyParser(['@LIST'] + x)
+            self.assertEqual(x, lp.parse_type(list))
+
+    def test_neg_parse_list(self):
+        for x in self.lists:
+            lp = LazyParser(x)
+            self.assertRaises(error.MalformedList, lp.parse_type, list)
+
+    def test_pos_parse_empty_list(self):
+        # The empty JSON array is a special case repr of an empty list:
+        lp = LazyParser([])
+        self.assertEqual([], lp.parse_type(list))
+
     def test_pos_iter(self):
-        lp = LazyParser([1, 2, 3])
+        for x in self.lists:
+            lp = LazyParser(['@LIST'] + x)
 
-        c = 0
-        for sublp in lp.iter():
-            c += 1
-            self.assertIsInstance(sublp, LazyParser)
-        self.assertEqual(3, c)
+            c = 0
+            for (elem, sublp) in zip(x, lp.iter()):
+                c += 1
+                self.assertIsInstance(sublp, LazyParser)
+                self.assertIs(elem, sublp.unwrap())
 
-    def test_neg_iter(self):
+            self.assertEqual(len(x), c)
+
+    def test_neg_iter_tagless_array(self):
+        lp = LazyParser(['this', 'array', 'has', 'no', 'list', 'tag'])
+
+        self.assertRaises(
+            error.MalformedList,
+            lp.iter)
+
+    def test_neg_iter_non_array(self):
         lp = LazyParser(3)
 
         self.assertRaises(
@@ -149,6 +191,18 @@ class LazyParser_struct (TestCase):
             error.UnexpectedStructKeys,
             lp.apply_struct,
             check)
+
+    def test_neg_apply_struct_invalid_identifier(self):
+        for badid in InvalidIdentifiers:
+            lp = LazyParser({badid: 'thingy'})
+
+            def check(x, y):
+                self._fail_if_called()
+
+            self.assertRaises(
+                error.InvalidIdentifier,
+                lp.apply_struct,
+                check)
 
     # Helper code:
     def _fail_if_called(self):
@@ -272,6 +326,15 @@ class LazyParser_variant (TestCase):
         r = lp.apply_variant(animal=check)
 
         self.assertIs(sentinel, r)
+
+    def test_neg_invalid_tag_syntax(self):
+        for badtag in InvalidIdentifiers:
+            lp = LazyParser([badtag, 'value'])
+
+            self.assertRaises(
+                error.MalformedIdentifier,
+                lp.apply_variant,
+                foo=lambda _: self.fail('variant should not have applied.'))
 
 
 class LazyParser_path (TestCase):
