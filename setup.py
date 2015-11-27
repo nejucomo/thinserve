@@ -13,7 +13,7 @@ setup(
     """.strip(),
     url='https://github.com/nejucomo/{0}'.format(PACKAGENAME),
     license='GPLv3',
-    version='0.1.dev0',
+    version='0.1.dev1',
     author='Nathan Wilcox',
     author_email='nejucomo@gmail.com',
 
