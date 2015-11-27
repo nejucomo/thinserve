@@ -122,8 +122,11 @@ class ThinAPIResourceTests (TestCase):
             'POST', [],
             msg,
             True, 400,
-            {"template": error.MalformedVariant.Template,
-             "params": {}})
+            {"template": error.UnexpectedType.Template,
+             "params": {
+                 "expected": "tuple",
+                 "actual": "dict",
+             }})
 
     def test_error_POST_root_unknown_operation(self):
         msg = ["create_disaster", 42]

@@ -1,6 +1,7 @@
 from unittest import TestCase
 from thinserve.proto.lazyparser import LazyParser
 from thinserve.proto import error
+from thinserve.tests.testutil import check_lists_equal
 
 
 InvalidIdentifiers = [
@@ -107,8 +108,13 @@ class LazyParser_list (TestCase):
         self.neglps = [LazyParser(x) for x in lists]
 
     def test_pos_parse_list(self):
-        for x, lp in self.poslps:
-            self.assertEqual(x, lp.parse_type(list))
+        for expecteds, lp in self.poslps:
+            actuallps = lp.parse_type(list)
+            check_lists_equal(
+                self,
+                expecteds,
+                [actuallp.unwrap()
+                 for actuallp in actuallps])
 
     def test_pos_unwrap(self):
         for x, lp in self.poslps:

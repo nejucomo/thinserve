@@ -43,36 +43,26 @@ class LazyParser (object):
             {'description': p.__doc__})
 
     def parse_type(self, t):
-        if t is list:
-            return self._parse_list()
-        else:
-            return self._parse_real_type(t)
+        return self._parse_predicate(
+            lambda v: isinstance(v, t),
+            error.UnexpectedType,
+            {
+                'actual': type(self._m).__name__,
+                'expected': t.__name__,
+            })
 
     def iter(self):
-        l = self.parse_type(list)
-
-        def g():
-            for i, x in enumerate(l):
-                yield LazyParser(x, '{}[{}]'.format(self._path, i))
-
-        return g()
+        return iter(self.parse_type(list))
 
     def apply_struct(self, f):
-        params = dict(
-            (self._verify_identifier(k),
-             LazyParser(v, '{}.{}'.format(self._path, k)))
-
-            for (k, v)
-            in self.parse_type(dict).iteritems()
-        )
-
+        params = self.parse_type(dict)
         self._check_arg_info(f, params.keys())
         return f(**params)
 
     def apply_variant_struct(self, **fs):
         return self.apply_variant(
             **dict(
-                (self._verify_identifier(k),
+                (k,
                  lambda lp, f=f: lp.apply_struct(f))
 
                 for (k, f)
@@ -81,12 +71,8 @@ class LazyParser (object):
         )
 
     def apply_variant(self, **fs):
-        [tag, body] = self._parse_predicate(
-            lambda v: (isinstance(v, list) and
-                       len(v) == 2),
-            error.MalformedVariant, {})
+        (tag, body) = self.parse_type(tuple)
 
-        self._verify_identifier(tag)
         try:
             f = fs[tag]
         except KeyError:
@@ -96,55 +82,49 @@ class LazyParser (object):
                 tag=tag,
                 knowntags=sorted(fs.keys()))
 
-        return f(LazyParser(body, '{}/{}'.format(self._path, tag)))
+        return f(body)
 
     # Private:
     def _peel(self):
+        def sublp(v, tmpl, key):
+            return LazyParser(
+                v,
+                ('{}' + tmpl).format(self._path, key))
+
         v = self._m
+
         if isinstance(v, list):
             if v == []:
                 return []
             elif v[0] == '@LIST':
-                return [LazyParser(x) for x in v[1:]]
+                return [
+                    sublp(x, '[{}]', i)
+                    for i, x in enumerate(v[1:])
+                ]
             else:
                 try:
                     [tag, value] = v
                 except ValueError:
-                    raise error.MalformedVariant(self._path, v)
+                    raise error.MalformedList(self._path, v)
 
                 self._verify_identifier(tag)
-                return (tag, LazyParser(value))
+                return (tag, sublp(value, '/{}', tag))
 
         elif isinstance(v, dict):
             return dict(
                 (self._verify_identifier(k),
-                 LazyParser(v))
+                 sublp(v, '.{}', k))
                 for (k, v) in v.iteritems())
 
         else:
             return v
 
     def _parse_predicate(self, p, errcls, params):
-        if p(self._m):
-            return self._m
+        v = self._peel()
+        if p(v):
+            return v
         else:
             raise errcls(self._path, self._m, **params)
-
-    def _parse_real_type(self, t):
-        return self._parse_predicate(
-            lambda v: isinstance(v, t),
-            error.UnexpectedType,
-            {'actual': type(self._m).__name__,
-             'expected': t.__name__})
-
-    def _parse_list(self):
-        v = self._parse_real_type(list)
-        if v == []:
-            return []
-        elif v[0] == '@LIST':
-            return v[1:]
-        else:
-            raise error.MalformedList(self._path, self._m)
 
     def _check_arg_info(self, f, paramnames):
         assert callable(f), repr(f)

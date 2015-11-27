@@ -70,11 +70,10 @@ class InvalidIdentifier (MalformedMessage):
 
 
 class MalformedList (MalformedMessage):
-    Template = 'invalid list, missing "@LIST" protocol tag'
-
-
-class MalformedVariant (MalformedMessage):
-    Template = 'expected variant [<tag>, <value>]'
+    Template = ' '.join('''
+        malformed list; must have form [] or ["@LIST", ...] for list or
+        [<tag>, <value>] for variant.
+    '''.strip().split())
 
 
 class UnknownVariantTag (MalformedMessage):

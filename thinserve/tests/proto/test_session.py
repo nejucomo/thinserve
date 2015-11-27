@@ -165,5 +165,5 @@ class SessionTests (TestCase):
                 self.failUnless(d.called)
                 d.addCallbacks(check_result, check_err, callbackArgs=(reply,))
 
-        # Note: d is done here, we can forget it.
-        return defer.DeferredList(repdefs)
+        d.addCallback(lambda _: defer.DeferredList(repdefs))
+        return d
