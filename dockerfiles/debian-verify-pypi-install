@@ -1,0 +1,5 @@
+FROM debian
+ENV DEBIAN_FRONTEND=noninteractive LIBNAME=thinserve
+RUN apt-get -y update && apt-get -y install python python-pip python-dev
+RUN pip install --pre thinserve
+CMD trial $LIBNAME
