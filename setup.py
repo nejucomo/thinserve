@@ -21,7 +21,7 @@ setup(
     install_requires=[
         'functable == 0.2.dev1',
         'mock == 1.0.1',
-        'twisted == 15.2.1',
+        'twisted == 22.1.0',
     ],
     package_data={
         PACKAGENAME: [
